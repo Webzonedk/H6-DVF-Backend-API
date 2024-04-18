@@ -3,6 +3,10 @@
     public class WeatherDto
     {
 
+        public float fetchDataTimer { get; set; }
+        public string address { get; set; }
+        public float latitude { get; set; }
+        public float longitude { get; set; }
         public float temperatureC { get; set; }
         public float windSpeed { get; set; }
         public float windDirection { get; set; }

@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace DVF_API.Data
+namespace DVF_API.Data.Mappers
 {
     public class DvfDbContext : DbContext
     {
