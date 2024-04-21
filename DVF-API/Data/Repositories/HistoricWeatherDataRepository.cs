@@ -1,6 +1,7 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Data.Models;
 using DVF_API.SharedLib.Dtos;
+using System.Data.SqlClient;
 using System.Globalization;
 using System.Text.Json;
 
@@ -50,14 +51,17 @@ namespace DVF_API.Data.Repositories
         {
           
         }
+        
 
 
-
+       
 
         public void SaveLocationsToDB(List<Location> locations)
         {
         
         }
+
+
 
 
         private async Task SaveDataAsBinaryAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
@@ -108,41 +112,41 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
-        {
-            var groupedData = data.Hourly.Time
-                                .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
-                                .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-                                .ToDictionary(g => g.Key, g => g.ToList());
+        //private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        //{
+        //    var groupedData = data.Hourly.Time
+        //                        .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
+        //                        .GroupBy(t => t.Time.ToString("yyyyMMdd"))
+        //                        .ToDictionary(g => g.Key, g => g.ToList());
 
-            foreach (var entry in groupedData)
-            {
-                string dateKey = entry.Key;
-                DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
+        //    foreach (var entry in groupedData)
+        //    {
+        //        string dateKey = entry.Key;
+        //        DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
+        //        string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
 
-                if (!Directory.Exists(yearFolder))
-                    Directory.CreateDirectory(yearFolder);
+        //        if (!Directory.Exists(yearFolder))
+        //            Directory.CreateDirectory(yearFolder);
 
-                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
+        //        string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
 
-                using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
-                {
-                    foreach (var v in entry.Value)
-                    {
-                        // Convert each time point to float and write directly as binary
-                        binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
-                        binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
-                        binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
-                        binWriter.Write(data.Hourly.Rain[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
-                    }
-                }
-            }
-        }
+        //        using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
+        //        {
+        //            foreach (var v in entry.Value)
+        //            {
+        //                // Convert each time point to float and write directly as binary
+        //                binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
+        //                binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
+        //                binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
+        //                binWriter.Write(data.Hourly.Rain[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
+        //            }
+        //        }
+        //    }
+        //}
 
     
     }
