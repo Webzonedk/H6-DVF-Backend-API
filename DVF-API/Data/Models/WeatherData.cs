@@ -4,7 +4,7 @@ namespace DVF_API.Data.Models
 {
     public class WeatherData
     {
-        [Key]
+      
         public int WeatherDataId { get; set; }
         public float TemperatureC { get; set; }
         public float WindSpeed { get; set; }
@@ -16,8 +16,8 @@ namespace DVF_API.Data.Models
         public DateTime DateAndTime { get; set; }
         public int LocationId { get; set; }
         public bool IsDeleted { get; set; }
+        public  Location Location { get; set; }
 
-        // Navigation property
-        public virtual Location Location { get; set; }
+       
     }
 }
