@@ -1,18 +1,17 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Data.Models;
-using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 namespace DVF_API.Data.Repositories
 {
     public class HistoricWeatherDataRepository : IHistoricWeatherDataRepository
     {
-        private readonly DbContext _context;
+        private readonly DvfDbContext _dvfDbContext;
         private readonly string _baseFolder;
 
-        public HistoricWeatherDataRepository(DbContext context, string baseFolder)
+        public HistoricWeatherDataRepository(DvfDbContext dvfDbContext, string baseFolder)
         {
-            _context = context;
+            _dvfDbContext = dvfDbContext;
             _baseFolder = baseFolder;
         }
         public async Task SaveDataToFileAsync(WeatherData data, string latitude, string longitude)
@@ -27,8 +26,21 @@ namespace DVF_API.Data.Repositories
 
         public async Task SaveDataToDatabaseAsync(WeatherData data)
         {
-            _context.Add(data);
-            await _context.SaveChangesAsync();
+            _dvfDbContext.Add(data);
+            await _dvfDbContext.SaveChangesAsync();
+        }
+
+        public void SaveCitiesToDB(List<City> cities)
+        {
+            _dvfDbContext.AddRange(cities);
+            _dvfDbContext.SaveChanges();
+        }
+
+
+        public void SaveLocationsToDB(List<Location> locations)
+        {
+            _dvfDbContext.AddRange(locations);
+            _dvfDbContext.SaveChanges();
         }
     }
 }

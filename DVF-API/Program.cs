@@ -1,11 +1,10 @@
 using DVF_API.Data.Interfaces;
-using DVF_API.Data.Mappers;
 using DVF_API.Data.Repositories;
 using DVF_API.Domain.BusinessLogic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.Services.ServiceImplementation;
-using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,12 +12,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure DbContext with SQL Server
-builder.Services.AddDbContext<DvfDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("WeatherDataDb")));
 
-
-
+//builder.Configuration.GetConnectionString("WeatherDataDb");
 
 //Dependency injections
 builder.Services.AddTransient<IDataRepository, CrudDatabaseRepository>();

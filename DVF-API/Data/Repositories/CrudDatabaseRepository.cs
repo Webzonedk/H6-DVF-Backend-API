@@ -1,18 +1,22 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Data.Mappers;
 using DVF_API.SharedLib.Dtos;
-using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Data.SqlClient;
+
 
 namespace DVF_API.Data.Repositories
 {
     public class CrudDatabaseRepository : IDataRepository, ILocationRepository
     {
-        private readonly DvfDbContext _context;
+        
+        private readonly IConfiguration configuration;
+        private readonly string connectionString;
 
-        public CrudDatabaseRepository(DvfDbContext context)
+        public CrudDatabaseRepository(IConfiguration _configuration)
         {
-            _context = context;
+
+        configuration = _configuration;
+            connectionString = configuration.GetConnectionString("WeatherDataDb");
         }
 
         public MetaDataDto FetchWeatherData(SearchDto searchDto)
@@ -25,7 +29,7 @@ namespace DVF_API.Data.Repositories
                 }).ToList();
 
             // Query the database
-            var query = _context.WeatherDatas
+            var query = _dvfDbContext.WeatherDatas
                 .Include(wd => wd.Location)
                     .ThenInclude(l => l.City)
                 .Where(wd => coordinates.Any(c => c.Latitude == wd.Location.Latitude && c.Longitude == wd.Location.Longitude))
@@ -76,12 +80,20 @@ namespace DVF_API.Data.Repositories
 
         public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
         {
-            throw new NotImplementedException();
+            
+
+           try{
+
+           }
+           catch{
+
+           }
         }
 
         public void RestoreAllData()
         {
             throw new NotImplementedException();
         }
+
     }
 }
