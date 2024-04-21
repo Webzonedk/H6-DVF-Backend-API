@@ -40,26 +40,68 @@ namespace DVF_API.Data.Repositories
 
         public async Task SaveDataToDatabaseAsync(WeatherData data)
         {
-            
-        
+
+
         }
 
 
-
-
-        public void SaveCitiesToDB(List<City> cities)
+        public void InsertCitiesToDB(List<City> city)
         {
-          
+            string query = @"INSERT INTO Cities (PostalCode, City)
+                             VALUES (@PostalCode, @City)";
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@PostalCode", city.PostalCode);
+                    command.Parameters.AddWithValue("@City", city.Name);
+
+                    try
+                    {
+                        connection.Open();
+                        command.ExecuteNonQuery();
+                        Console.WriteLine("City inserted successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error inserting city: {ex.Message}");
+                    }
+                }
+            }
         }
-        
 
-
-       
-
-        public void SaveLocationsToDB(List<Location> locations)
+        public void InsertLocationsToDB(List<Location> location)
         {
-        
+            string query = @"INSERT INTO Locations (StreetName, HouseNumber, PostalCode, City, Latitude, Longitude)
+                             VALUES (@StreetName, @HouseNumber, @PostalCode, @City, @Latitude, @Longitude)";
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@StreetName", location.StreetName);
+                    command.Parameters.AddWithValue("@HouseNumber", location.StreetNumber);
+                    command.Parameters.AddWithValue("@PostalCode", location.City.PostalCode);
+                    command.Parameters.AddWithValue("@City", location.City);
+                    command.Parameters.AddWithValue("@Latitude", location.Latitude);
+                    command.Parameters.AddWithValue("@Longitude", location.Longitude);
+
+                    try
+                    {
+                        connection.Open();
+                        command.ExecuteNonQuery();
+                        Console.WriteLine("Location inserted successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error inserting location: {ex.Message}");
+                    }
+                }
+            }
         }
+
+
 
 
 
@@ -87,7 +129,8 @@ namespace DVF_API.Data.Repositories
                     foreach (var v in entry.Value)
                     {
                         // Convert each time point to float and write directly as binary
-                        await Task.Run(() => {
+                        await Task.Run(() =>
+                        {
                             binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
                             binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
                             binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
@@ -148,6 +191,6 @@ namespace DVF_API.Data.Repositories
         //    }
         //}
 
-    
+
     }
 }

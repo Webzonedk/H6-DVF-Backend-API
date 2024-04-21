@@ -1,4 +1,5 @@
 ﻿using DVF_API.Data.Interfaces;
+using DVF_API.Data.Models;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Diagnostics;
@@ -56,6 +57,38 @@ namespace DVF_API.Services.ServiceImplementation
         public void StopSimulator()
         {
             throw new System.NotImplementedException();
+        }
+
+        /// <summary>
+        /// method to load & deserialize json data into models
+        /// </summary>
+        /// <returns></returns>
+        public List<City> CreateCities()
+        {
+            string _LocationsCities = "..\\DVF-API\\Sources\\Cities.json";
+            List<City> cityModel = JsonSerializer.Deserialize<List<City>>(_LocationsCities, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            foreach (var city in cityModel)
+            {
+                Debug.WriteLine(cityModel);
+
+            }
+            return cityModel;
+
+        }
+
+        public List<Location> CreateLocations()
+        {
+            string _LocationsFilePath = "..\\DVF-API\\Sources\\LocationsSelected.json";
+
+            List<Location> locations = JsonSerializer.Deserialize<List<Location>>(_LocationsFilePath, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            foreach (var location in locations)
+            {
+                Debug.WriteLine(location);
+
+            }
+            return locations;
         }
 
 
