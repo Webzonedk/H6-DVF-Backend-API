@@ -11,8 +11,6 @@ namespace DVF_API.Services.ServiceImplementation
     {
         private readonly IDeveloperService _developerService;
 
-        private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
-
         private readonly HttpClient _client = new HttpClient();
 #if DEBUG
         private string _baseFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "weatherData\\");
@@ -27,19 +25,22 @@ namespace DVF_API.Services.ServiceImplementation
         private HistoricWeatherDataDto? _originalWeatherData;
 
 
+        #region fields
+        private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
+        #endregion
 
-
+        #region Constructor
+        internal DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository)
+        {
+            _historicWeatherDataRepository = historicWeatherDataRepository;
+        }
         internal DeveloperService(IDeveloperService developerService)
         {
             _developerService = developerService;
         }
+        #endregion
 
-        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository)
-        {
-            _historicWeatherDataRepository = historicWeatherDataRepository;
-        }
 
-       
 
         public void CreateHistoricWeatherDataAsync(bool createFiles, bool createDB)
         {
@@ -66,7 +67,8 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 try
                 {
-                    await CreateAndProcessHistoricalWeatherData();
+                    await GenerateAndSaveOriginalData(_latitude, _longitude, _startDate, _endDate, _baseFolder);
+                    await ProcessAllCoordinates(_coordinatesFilePath);
                 }
                 catch (Exception ex)
                 {
@@ -77,15 +79,6 @@ namespace DVF_API.Services.ServiceImplementation
                     Debug.WriteLine("Historical weather data generation completed.");
                 }
             });
-        }
-
-
-
-
-        public async Task CreateAndProcessHistoricalWeatherData()
-        {
-            await GenerateAndSaveOriginalData(_latitude, _longitude, _startDate, _endDate, _baseFolder);
-            ProcessAllCoordinates(_coordinatesFilePath);
         }
 
 
@@ -103,7 +96,7 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 var formatedLatitude = FormatCoordinate(latitude);
                 var formatedLongitude = FormatCoordinate(longitude);
-                SaveDataAsBinary(_originalWeatherData, formatedLatitude, formatedLongitude, baseFolder);  // Save original data
+                await _historicWeatherDataRepository.SaveDataToFileAsync(_originalWeatherData, formatedLatitude, formatedLongitude, baseFolder);
             }
         }
 
@@ -134,7 +127,8 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public void ProcessAllCoordinates(string coordinatesFilePath)
+
+        public async Task ProcessAllCoordinates(string coordinatesFilePath)
         {
             var coordinates = ReadCoordinates(coordinatesFilePath);
             foreach (var coordinate in coordinates)
@@ -145,107 +139,11 @@ namespace DVF_API.Services.ServiceImplementation
                     HistoricWeatherDataDto? modifiedData = ModifyData(_originalWeatherData);
                     if (modifiedData != null)
                     {
-                        SaveDataAsBinary(modifiedData, parts[0], parts[1], _baseFolder);
+                        await _historicWeatherDataRepository.SaveDataToFileAsync(modifiedData, parts[0], parts[1], _baseFolder);
                     }
                 }
             }
         }
-
-
-
-
-        private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
-        {
-            var groupedData = data.Hourly.Time
-                                .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
-                                .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-                                .ToDictionary(g => g.Key, g => g.ToList());
-
-            foreach (var entry in groupedData)
-            {
-                string dateKey = entry.Key;
-                DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
-
-                if (!Directory.Exists(yearFolder))
-                    Directory.CreateDirectory(yearFolder);
-
-                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
-
-                using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
-                {
-                    foreach (var v in entry.Value)
-                    {
-                        // Convert each time point to float and write directly as binary
-                        binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
-                        binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
-                        binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
-                        binWriter.Write(data.Hourly.Rain[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
-                        binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
-                    }
-                }
-            }
-        }
-
-
-
-        private void SaveData(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
-        {
-
-
-            var groupedData = data.Hourly.Time
-                                .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
-                                .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-                                .ToDictionary(g => g.Key, g => g.ToList());
-
-
-            foreach (var entry in groupedData)
-            {
-                string dateKey = entry.Key;
-                DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
-
-                if (!Directory.Exists(yearFolder))
-                    Directory.CreateDirectory(yearFolder);
-
-                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.json");
-
-                HistoricWeatherDataOutputDto dailyData = new HistoricWeatherDataOutputDto
-                {
-                    Hourly = new HourlyDataOutput
-                    {
-                        Time = entry.Value.Select(v => ConvertDateTimeToFloat(data.Hourly.Time[v.Index])).ToArray(),
-                        Temperature_2m = entry.Value.Select(v => data.Hourly.Temperature_2m[v.Index]).ToArray(),
-                        Relative_Humidity_2m = entry.Value.Select(v => data.Hourly.Relative_Humidity_2m[v.Index]).ToArray(),
-                        Rain = entry.Value.Select(v => data.Hourly.Rain[v.Index]).ToArray(),
-                        Wind_Speed_10m = entry.Value.Select(v => data.Hourly.Wind_Speed_10m[v.Index]).ToArray(),
-                        Wind_Direction_10m = entry.Value.Select(v => data.Hourly.Wind_Direction_10m[v.Index]).ToArray(),
-                        Wind_Gusts_10m = entry.Value.Select(v => data.Hourly.Wind_Gusts_10m[v.Index]).ToArray(),
-                        Global_Tilted_Irradiance_Instant = entry.Value.Select(v => data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]).ToArray()
-                    }
-                };
-
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                string json = JsonSerializer.Serialize(dailyData, options);
-                File.WriteAllText(filePath, json);
-            }
-        }
-
-
-
-
-        private float ConvertDateTimeToFloat(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return float.Parse(parsedDateTime.ToString("HHmm"));
-        }
-
-
-
-
 
 
 
@@ -288,6 +186,104 @@ namespace DVF_API.Services.ServiceImplementation
             float newValue = (float)Math.Round(originalValue * (1 + percentage), 2, MidpointRounding.AwayFromZero);
             return newValue;
         }
+
+
+        //private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        //{
+        //    var groupedData = data.Hourly.Time
+        //                        .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
+        //                        .GroupBy(t => t.Time.ToString("yyyyMMdd"))
+        //                        .ToDictionary(g => g.Key, g => g.ToList());
+
+        //    foreach (var entry in groupedData)
+        //    {
+        //        string dateKey = entry.Key;
+        //        DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
+        //        string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
+
+        //        if (!Directory.Exists(yearFolder))
+        //            Directory.CreateDirectory(yearFolder);
+
+        //        string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
+
+        //        using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
+        //        {
+        //            foreach (var v in entry.Value)
+        //            {
+        //                // Convert each time point to float and write directly as binary
+        //                binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
+        //                binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
+        //                binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
+        //                binWriter.Write(data.Hourly.Rain[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
+        //                binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
+        //            }
+        //        }
+        //    }
+        //}
+
+
+
+        //private void SaveData(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        //{
+
+
+        //    var groupedData = data.Hourly.Time
+        //                        .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
+        //                        .GroupBy(t => t.Time.ToString("yyyyMMdd"))
+        //                        .ToDictionary(g => g.Key, g => g.ToList());
+
+
+        //    foreach (var entry in groupedData)
+        //    {
+        //        string dateKey = entry.Key;
+        //        DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
+        //        string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
+
+        //        if (!Directory.Exists(yearFolder))
+        //            Directory.CreateDirectory(yearFolder);
+
+        //        string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.json");
+
+        //        HistoricWeatherDataOutputDto dailyData = new HistoricWeatherDataOutputDto
+        //        {
+        //            Hourly = new HourlyDataOutput
+        //            {
+        //                Time = entry.Value.Select(v => ConvertDateTimeToFloat(data.Hourly.Time[v.Index])).ToArray(),
+        //                Temperature_2m = entry.Value.Select(v => data.Hourly.Temperature_2m[v.Index]).ToArray(),
+        //                Relative_Humidity_2m = entry.Value.Select(v => data.Hourly.Relative_Humidity_2m[v.Index]).ToArray(),
+        //                Rain = entry.Value.Select(v => data.Hourly.Rain[v.Index]).ToArray(),
+        //                Wind_Speed_10m = entry.Value.Select(v => data.Hourly.Wind_Speed_10m[v.Index]).ToArray(),
+        //                Wind_Direction_10m = entry.Value.Select(v => data.Hourly.Wind_Direction_10m[v.Index]).ToArray(),
+        //                Wind_Gusts_10m = entry.Value.Select(v => data.Hourly.Wind_Gusts_10m[v.Index]).ToArray(),
+        //                Global_Tilted_Irradiance_Instant = entry.Value.Select(v => data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]).ToArray()
+        //            }
+        //        };
+
+        //        var options = new JsonSerializerOptions { WriteIndented = true };
+        //        string json = JsonSerializer.Serialize(dailyData, options);
+        //        File.WriteAllText(filePath, json);
+        //    }
+        //}
+
+
+
+
+        //private float ConvertDateTimeToFloat(string time)
+        //{
+        //    DateTime parsedDateTime = DateTime.Parse(time);
+        //    return float.Parse(parsedDateTime.ToString("HHmm"));
+        //}
+
+
+
+
+
+
+
+
 
     }
 }
