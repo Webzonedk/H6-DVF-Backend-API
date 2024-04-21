@@ -9,7 +9,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["DVF-API/DVF-API.csproj", "DVF-API/"]
-RUN dotnet restore "./DVF-API/./DVF-API.csproj"
+RUN dotnet restore "./DVF-API/DVF-API.csproj"
 COPY . .
 WORKDIR "/src/DVF-API"
 RUN dotnet build "./DVF-API.csproj" -c $BUILD_CONFIGURATION -o /app/build

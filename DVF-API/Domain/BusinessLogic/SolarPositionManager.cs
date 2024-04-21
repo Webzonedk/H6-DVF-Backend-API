@@ -13,11 +13,10 @@ namespace DVF_API.Domain.BusinessLogic
     {
 
 
-        private readonly ISolarPositionManager _solarPositionManager;
 
-        internal SolarPositionManager(ISolarPositionManager solarPositionManager)
+        public SolarPositionManager()
         {
-            _solarPositionManager = solarPositionManager;
+            
         }
 
 

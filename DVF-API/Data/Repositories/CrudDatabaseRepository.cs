@@ -6,55 +6,66 @@ using System.Data.SqlClient;
 
 namespace DVF_API.Data.Repositories
 {
-    public class CrudDatabaseRepository : IDataRepository, ILocationRepository
+    public class CrudDatabaseRepository : IDatabaseRepository, ILocationRepository
     {
-        
-        private readonly IConfiguration configuration;
-        private readonly string connectionString;
+        private readonly IConfiguration _configuration;
+        private readonly string _connectionString;
 
-        public CrudDatabaseRepository(IConfiguration _configuration)
+      public CrudDatabaseRepository(IConfiguration configuration)
         {
-
-        configuration = _configuration;
-            connectionString = configuration.GetConnectionString("WeatherDataDb");
+            _configuration = configuration;
+            _connectionString = _configuration.GetConnectionString("WeatherDataDb");
         }
+      //    private readonly IDatabaseRepository _databaseRepository;
+      //  private readonly ILocationRepository _locationRepository;
+      //  private readonly IConfiguration _configuration;
+      //  private readonly string _connectionString;
+
+      //public CrudDatabaseRepository(IDatabaseRepository databaseRepository, IConfiguration configuration, ILocationRepository locationRepository)
+      //  {
+      //      _locationRepository = locationRepository;
+      //      _databaseRepository = databaseRepository;
+      //      _configuration = configuration;
+      //      _connectionString = _configuration.GetConnectionString("WeatherDataDb");
+      //  }
+  
 
         public MetaDataDto FetchWeatherData(SearchDto searchDto)
         {
-            // Parse and filter by coordinates
-            var coordinates = searchDto.Coordinates
-                .Select(coord => {
-                    var parts = coord.Split('-');
-                    return new { Latitude = double.Parse(parts[0], CultureInfo.InvariantCulture), Longitude = double.Parse(parts[1], CultureInfo.InvariantCulture) };
-                }).ToList();
+            //// Parse and filter by coordinates
+            //var coordinates = searchDto.Coordinates
+            //    .Select(coord => {
+            //        var parts = coord.Split('-');
+            //        return new { Latitude = double.Parse(parts[0], CultureInfo.InvariantCulture), Longitude = double.Parse(parts[1], CultureInfo.InvariantCulture) };
+            //    }).ToList();
 
-            // Query the database
-            var query = _dvfDbContext.WeatherDatas
-                .Include(wd => wd.Location)
-                    .ThenInclude(l => l.City)
-                .Where(wd => coordinates.Any(c => c.Latitude == wd.Location.Latitude && c.Longitude == wd.Location.Longitude))
-                .Where(wd => wd.DateAndTime >= searchDto.FromDate && wd.DateAndTime <= searchDto.ToDate);
+            //// Query the database
+            //var query = _dvfDbContext.WeatherDatas
+            //    .Include(wd => wd.Location)
+            //        .ThenInclude(l => l.City)
+            //    .Where(wd => coordinates.Any(c => c.Latitude == wd.Location.Latitude && c.Longitude == wd.Location.Longitude))
+            //    .Where(wd => wd.DateAndTime >= searchDto.FromDate && wd.DateAndTime <= searchDto.ToDate);
 
-            // Project to WeatherDataDto (Assuming you have a mapper or manually map the fields)
-            var weatherDataDtos = query.Select(wd => new WeatherDataDto
-            {
-                Latitude = (float)wd.Location.Latitude,
-                Longitude = (float)wd.Location.Longitude,
-                TemperatureC = wd.TemperatureC,
-                WindSpeed = wd.WindSpeed,
-                WindDirection = wd.WindDirection,
-                WindGust = wd.WindGust,
-                RelativeHumidity = wd.RelativeHumidity,
-                Rain = wd.Rain,
-                GlobalTiltedIrRadiance = wd.GlobalTiltedIrRadiance,
-                DateAndTime = wd.DateAndTime,
-                // Additional mappings can be added here
-            }).ToList();
+            //// Project to WeatherDataDto (Assuming you have a mapper or manually map the fields)
+            //var weatherDataDtos = query.Select(wd => new WeatherDataDto
+            //{
+            //    Latitude = (float)wd.Location.Latitude,
+            //    Longitude = (float)wd.Location.Longitude,
+            //    TemperatureC = wd.TemperatureC,
+            //    WindSpeed = wd.WindSpeed,
+            //    WindDirection = wd.WindDirection,
+            //    WindGust = wd.WindGust,
+            //    RelativeHumidity = wd.RelativeHumidity,
+            //    Rain = wd.Rain,
+            //    GlobalTiltedIrRadiance = wd.GlobalTiltedIrRadiance,
+            //    DateAndTime = wd.DateAndTime,
+            //    // Additional mappings can be added here
+            //}).ToList();
 
             // Populate the MetaDataDto
             return new MetaDataDto
             {
-                WeatherData = weatherDataDtos,
+                //WeatherData = weatherDataDtos,
             };
         }
 

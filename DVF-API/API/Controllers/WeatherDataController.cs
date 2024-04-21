@@ -21,26 +21,26 @@ namespace DVF_API.API.Controllers
         }
         #endregion
 
-        [HttpPost(Name = "GetAddress")]
+        [HttpPost("/GetAddress")]
         public IEnumerable<string> GetAddress()
         {
             return null;
         }
 
-        [HttpGet(Name  = "GetLocationCount")]
+        [HttpGet("/GetLocationCount")]
         public int GetLocationCount()
         {
             return 0;
         }
 
 
-        [HttpPost(Name = "GetLocations")]
+        [HttpPost("/GetLocations")]
         public IEnumerable<string> GetLocations(int fromIndex, int toIndex)
         {
             return null;
         }
 
-        [HttpGet(Name = "GetWeatherData")]
+        [HttpPost("/GetWeatherData")]
         public MetaDataDto GetWeatherData(SearchDto seachDto)
         {
             return null;

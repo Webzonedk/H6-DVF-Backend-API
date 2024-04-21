@@ -6,11 +6,10 @@ namespace DVF_API.Domain.BusinessLogic
     public class BinaryConversionManager : IBinaryConversionManager
     {
 
-        private readonly IBinaryConversionManager _binaryConversionManager;
 
-        internal BinaryConversionManager(IBinaryConversionManager binaryConversionManager)
+        public BinaryConversionManager()
         {
-            _binaryConversionManager = binaryConversionManager;
+            
         }
 
 

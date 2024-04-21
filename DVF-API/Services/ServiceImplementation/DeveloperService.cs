@@ -10,8 +10,6 @@ namespace DVF_API.Services.ServiceImplementation
 {
     public class DeveloperService : IDeveloperService
     {
-        private readonly IDeveloperService _developerService;
-
 
         private readonly HttpClient _client = new HttpClient();
 #if DEBUG
@@ -29,16 +27,17 @@ namespace DVF_API.Services.ServiceImplementation
 
         #region fields
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
+        private readonly IDatabaseRepository _databaseRepository;
+        private readonly IFileRepository _fileRepository;
         #endregion
 
         #region Constructor
-        internal DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository)
+
+      public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IDatabaseRepository databaseRepository, IFileRepository fileRepository)
         {
             _historicWeatherDataRepository = historicWeatherDataRepository;
-        }
-        internal DeveloperService(IDeveloperService developerService)
-        {
-            _developerService = developerService;
+            _databaseRepository = databaseRepository;
+            _fileRepository = fileRepository;
         }
         #endregion
 

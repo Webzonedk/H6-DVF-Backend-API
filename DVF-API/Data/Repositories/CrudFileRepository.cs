@@ -1,23 +1,16 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 
 namespace DVF_API.Data.Repositories
 {
-    public class CrudFileRepository: IDataRepository
+    public class CrudFileRepository: IFileRepository
     {
-        private string _basePath;
+        
 
-        private readonly IDataRepository _dataRepository;
 
-        internal CrudFileRepository(IDataRepository dataRepository)
+        public CrudFileRepository()
         {
-            _dataRepository = dataRepository;
-        }
-
-        public CrudFileRepository(string basePath)
-        {
-            _basePath = basePath; // Sæt stien til mappen, hvor vejrdatafilerne er placeret
+           
         }
 
         public MetaDataDto FetchWeatherData(SearchDto seachDto)
@@ -105,7 +98,7 @@ namespace DVF_API.Data.Repositories
         private async Task<List<string>> FetchDataForDayAsync(DateTime day)
         {
             List<string> dailyResults = new List<string>();
-            var directories = Directory.GetDirectories(_basePath);
+            var directories = Directory.GetDirectories("test"); //TODO: Change to actual path
 
             List<Task<string>> readTasks = new List<Task<string>>();
             foreach (var dir in directories)

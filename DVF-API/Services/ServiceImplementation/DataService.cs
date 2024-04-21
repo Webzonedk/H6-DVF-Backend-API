@@ -1,5 +1,4 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Data.Mappers;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 
@@ -8,11 +7,11 @@ namespace DVF_API.Services.ServiceImplementation
     public class DataService: IDataService
     {
 
-        private readonly IDataRepository _dataRepository;
+        private readonly IDatabaseRepository _databaseRepository;
 
-        public DataService(IDataRepository dataRepository)
+        public DataService(IDatabaseRepository databaseRepository)
         {
-            _dataRepository = dataRepository;
+            _databaseRepository = databaseRepository;
         }
         public List<string> GetAddressesFromDBMatchingInputs(string partialAddress)
         {
@@ -32,7 +31,7 @@ namespace DVF_API.Services.ServiceImplementation
         public MetaDataDto GetWeatherDataService(SearchDto searchDto)
         {
 
-            return _dataRepository.FetchWeatherData(searchDto);
+            return _databaseRepository.FetchWeatherData(searchDto);
         }
     }
 }

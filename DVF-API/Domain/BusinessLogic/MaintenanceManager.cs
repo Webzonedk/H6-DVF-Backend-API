@@ -14,11 +14,9 @@ namespace DVF_API.Domain.BusinessLogic
     public class MaintenanceManager: IMaintenanceManager
     {
 
-        private readonly IMaintenanceManager _maintenanceManager;
 
-        internal MaintenanceManager(IMaintenanceManager maintenanceManager)
+        public MaintenanceManager()
         {
-            _maintenanceManager = maintenanceManager;
         }
 
 

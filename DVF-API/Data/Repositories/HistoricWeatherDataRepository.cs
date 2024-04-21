@@ -10,21 +10,14 @@ namespace DVF_API.Data.Repositories
 {
     public class HistoricWeatherDataRepository : IHistoricWeatherDataRepository
     {
-        private readonly IConfiguration configuration;
-        private readonly string connectionString;
+        private readonly IConfiguration _configuration;
+        private readonly string _connectionString;
 
-        public HistoricWeatherDataRepository(IConfiguration _configuration)
+        public HistoricWeatherDataRepository(IConfiguration configuration)
         {
-
-            configuration = _configuration;
-            connectionString = configuration.GetConnectionString("WeatherDataDb");
-        }
-
-        private readonly string _baseFolder;
-
-        public HistoricWeatherDataRepository(string baseFolder)
-        {
-            _baseFolder = baseFolder;
+            _configuration = configuration;
+            _connectionString = _configuration.GetConnectionString("WeatherDataDb");
+            
         }
 
 
@@ -48,7 +41,7 @@ namespace DVF_API.Data.Repositories
 
         public async Task InsertCitiesToDB(List<City> cities)
         {
-            await using SqlConnection connection = new SqlConnection(connectionString);
+            await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             foreach (City city in cities)
@@ -76,7 +69,7 @@ namespace DVF_API.Data.Repositories
 
         public async Task InsertLocationsToDB(List<Location> locations)
         {
-            await using SqlConnection connection = new SqlConnection(connectionString);
+            await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             foreach (Location location in locations)
