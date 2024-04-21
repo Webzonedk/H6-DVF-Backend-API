@@ -6,6 +6,10 @@ namespace DVF_API.Data.Mappers
     public class DvfDbContext : DbContext
     {
 
+        public DvfDbContext(DbContextOptions<DvfDbContext> options) : base(options)
+        {
+        }
+
         public DbSet<City> Cities { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<WeatherData> WeatherDatas { get; set; }

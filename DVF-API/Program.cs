@@ -23,19 +23,16 @@ builder.Services.AddDbContext<DvfDbContext>(options =>
 //Dependency injections
 builder.Services.AddTransient<IDataRepository, CrudDatabaseRepository>();
 builder.Services.AddTransient<IDataRepository, CrudFileRepository>();
-builder.Services.AddTransient<IDeveloperRepository, DeveloperRepository>();
-builder.Services.AddTransient<ILocationRepository, LocationRepository>();
+builder.Services.AddTransient<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
 
 builder.Services.AddTransient<IAddWeatherDataService, AddWeatherDataService>();
 builder.Services.AddTransient<IDataService, DataService>();
 builder.Services.AddTransient<IDeveloperService, DeveloperService>();
 builder.Services.AddTransient<IMaintenanceService, MaintenanceService>();
 
-builder.Services.AddTransient<IAddWeatherDataService, DataService>();
-builder.Services.AddTransient<IHistoricWeatherDataManager, HistoricWeatherDataManager>();
 builder.Services.AddTransient<ISolarPositionManager, SolarPositionManager>();
-builder.Services.AddTransient<IDeveloperRepository, DeveloperRepository>();
-builder.Services.AddTransient<ILocationRepository, LocationRepository>();
+builder.Services.AddTransient<IMaintenanceManager, MaintenanceManager>();
+builder.Services.AddTransient<IBinaryConversionManager, BinaryConversionManager>();
 
 
 var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";

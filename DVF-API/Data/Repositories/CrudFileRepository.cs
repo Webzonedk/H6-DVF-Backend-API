@@ -30,27 +30,12 @@ namespace DVF_API.Data.Repositories
             throw new NotImplementedException();
         }
 
-        public List<string> FetchLoactionCoordinates(int fromIndex, int toIndex)
-        {
-            throw new NotImplementedException();
-        }
-
-        public int FetchLocationCount(string partialAddress)
-        {
-            throw new NotImplementedException();
-        }
-
-        public List<string> FetchMatchingAddresses(string partialAddress)
+        public void RestoreAllData()
         {
             throw new NotImplementedException();
         }
 
         public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void RestoreAllData()
         {
             throw new NotImplementedException();
         }

@@ -23,7 +23,7 @@ namespace DVF_API.API.Controllers
         [HttpPost("CreateHistoricWeatherData")]
         public async Task<IActionResult> CreateHistoricWeatherData([FromBody] bool createFiles, bool createDB)
         {
-          _developerService.CreateHistoricWeatherData(createFiles, createDB);
+          _developerService.CreateHistoricWeatherDataAsync(createFiles, createDB);
             return Ok(new { message = "Historic weather data created" });
         }
 

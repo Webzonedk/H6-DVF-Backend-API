@@ -6,7 +6,7 @@ using System.Globalization;
 
 namespace DVF_API.Data.Repositories
 {
-    public class CrudDatabaseRepository : IDataRepository
+    public class CrudDatabaseRepository : IDataRepository, ILocationRepository
     {
         private readonly DvfDbContext _context;
 

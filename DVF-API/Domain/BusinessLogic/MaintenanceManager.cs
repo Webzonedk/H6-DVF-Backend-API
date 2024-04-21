@@ -1,4 +1,7 @@
-﻿using System.Diagnostics;
+﻿using DVF_API.Domain.Interfaces;
+using DVF_API.Services.Interfaces;
+using DVF_API.Services.ServiceImplementation;
+using System.Diagnostics;
 
 namespace DVF_API.Domain.BusinessLogic
 {
@@ -8,8 +11,17 @@ namespace DVF_API.Domain.BusinessLogic
     /// This class is designed to ensure that the application environment is clean and that resources
     /// are managed efficiently, especially before shutdown or when resource reallocation is necessary.
     /// </summary>
-    public class MaintenanceManager
+    public class MaintenanceManager: IMaintenanceManager
     {
+
+        private readonly IMaintenanceManager _maintenanceManager;
+
+        internal MaintenanceManager(IMaintenanceManager maintenanceManager)
+        {
+            _maintenanceManager = maintenanceManager;
+        }
+
+
         /// <summary>
         /// Cleans up system resources by forcing garbage collection, clearing the console window,
         /// and terminating all instances of the current process except the main one.
@@ -22,8 +34,6 @@ namespace DVF_API.Domain.BusinessLogic
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
-            Console.Clear();
-
             Process currentProcess = Process.GetCurrentProcess();
             foreach (Process process in Process.GetProcessesByName(currentProcess.ProcessName))
             {
@@ -33,6 +43,5 @@ namespace DVF_API.Domain.BusinessLogic
                 }
             }
         }
-
     }
 }

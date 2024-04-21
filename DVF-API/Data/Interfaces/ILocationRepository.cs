@@ -2,7 +2,8 @@
 {
     public interface ILocationRepository
     {
-        internal int GetLocationCount();
-        internal HashSet<string> GetLatitudesAndLongitudes();
+        List<string> FetchMatchingAddresses(string partialAddress);
+        int FetchLocationCount(string partialAddress);
+        List<string> FetchLoactionCoordinates(int fromIndex, int toIndex);
     }
 }

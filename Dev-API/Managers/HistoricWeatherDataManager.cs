@@ -19,8 +19,8 @@ namespace Dev_API.Managers
         private string _longitude = "11.9639";
         private DateTime _startDate = new DateTime(2024, 03, 30);
         private DateTime _endDate = new DateTime(2024, 04, 01);
-        private string coordinatesFilePath = "..\\Dev-API\\Sources\\uniqueCoordinates1.json";
-        private WeatherData? _originalWeatherData;
+        private string _coordinatesFilePath = "..\\Dev-API\\Sources\\uniqueCoordinates1.json";
+        private HistoricWeatherDataDto? _originalWeatherData;
 
         public void CreateHistoricalWeatherData()
         {
@@ -47,7 +47,7 @@ namespace Dev_API.Managers
         public async Task CreateAndProcessHistoricalWeatherData()
         {
             await GenerateAndSaveOriginalData(_latitude, _longitude, _startDate, _endDate, _baseFolder);
-            ProcessAllCoordinates(coordinatesFilePath);
+            ProcessAllCoordinates(_coordinatesFilePath);
         }
 
 
@@ -59,7 +59,7 @@ namespace Dev_API.Managers
             var response = await _client.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var jsonData = await response.Content.ReadAsStringAsync();
-            _originalWeatherData = JsonSerializer.Deserialize<WeatherData>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            _originalWeatherData = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (_originalWeatherData != null)
             {
@@ -72,12 +72,12 @@ namespace Dev_API.Managers
 
 
 
-        private WeatherData? ModifyData(WeatherData? originalData)
+        private HistoricWeatherDataDto? ModifyData(HistoricWeatherDataDto? originalData)
         {
             if (originalData == null)
                 return null;
             var random = new Random();
-            WeatherData modifiedData = new WeatherData
+            HistoricWeatherDataDto modifiedData = new HistoricWeatherDataDto
             {
                 Hourly = new HourlyData
                 {
@@ -104,7 +104,7 @@ namespace Dev_API.Managers
                 string[] parts = coordinate.Split('-');
                 if (parts.Length == 2 && (parts[0] != _latitude || parts[1] != _longitude))  // Skip the original coordinates
                 {
-                    WeatherData? modifiedData = ModifyData(_originalWeatherData);
+                    HistoricWeatherDataDto? modifiedData = ModifyData(_originalWeatherData);
                     if (modifiedData != null)
                     {
                         SaveDataAsBinary(modifiedData, parts[0], parts[1], _baseFolder);
@@ -116,7 +116,7 @@ namespace Dev_API.Managers
 
 
 
-        private void SaveDataAsBinary(WeatherData data, string latitude, string longitude, string baseFolder)
+        private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
         {
             var groupedData = data.Hourly.Time
                                 .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
@@ -154,7 +154,7 @@ namespace Dev_API.Managers
 
 
 
-        private void SaveData(WeatherData data, string latitude, string longitude, string baseFolder)
+        private void SaveData(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
         {
 
 
@@ -175,7 +175,7 @@ namespace Dev_API.Managers
 
                 string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.json");
 
-                WeatherDataOutput dailyData = new WeatherDataOutput
+                HistoricWeatherDataOutputDto dailyData = new HistoricWeatherDataOutputDto
                 {
                     Hourly = new HourlyDataOutput
                     {
@@ -259,7 +259,7 @@ namespace Dev_API.Managers
 
 
 
-        public class WeatherData
+        public class HistoricWeatherDataDto
         {
             public HourlyData Hourly { get; set; }
         }
@@ -281,7 +281,7 @@ namespace Dev_API.Managers
 
 
 
-        public class WeatherDataOutput
+        public class HistoricWeatherDataOutputDto
         {
             public HourlyDataOutput Hourly { get; set; }
         }
