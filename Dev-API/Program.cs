@@ -7,6 +7,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+
+var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: _allowAllOriginsForDevelopment,
+        builder =>
+        {
+            builder.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
+        });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -16,6 +28,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+
+
+
+app.UseCors(_allowAllOriginsForDevelopment);
 app.UseAuthorization();
 
 app.MapControllers();

@@ -1,6 +1,9 @@
 ﻿namespace DVF_API.Services.Interfaces
 {
-    public interface IDeveloperService
+    internal interface IDeveloperService
     {
+        void CreateHistoricWeatherDataAsync(bool createFiles, bool createDB);
+        void StartSimulator();
+        void StopSimulator();
     }
 }

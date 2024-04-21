@@ -1,4 +1,6 @@
+using IOT_Simulator.Interfaces;
 using IOT_Simulator.Models;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IOT_Simulator.Controllers
@@ -7,25 +9,27 @@ namespace IOT_Simulator.Controllers
     [Route("[controller]")]
     public class IOTWeatherController : ControllerBase
     {
+        private readonly ISimulatorIOTManager _simulatorIOTManager;
 
-
-        private readonly ILogger<IOTWeatherController> _logger;
-
-        public IOTWeatherController(ILogger<IOTWeatherController> logger)
+        public IOTWeatherController(ISimulatorIOTManager simulatorIOTManager)
         {
-            _logger = logger;
+            _simulatorIOTManager = simulatorIOTManager;
         }
 
+
         [HttpPost(Name = "StartDataCollection")]
-        public bool StartDataCollection()
+        public IActionResult StartDataCollection()
         {
-            return true;
+            _simulatorIOTManager.Start();
+            return Ok();
         }
 
         [HttpPost(Name = "StopDataCollection")]
-        public bool StopDataCollection()
+        public IActionResult StopDataCollection()
         {
-            return true;
+            _simulatorIOTManager.Stop();
+            return Ok();
         }
+
     }
 }

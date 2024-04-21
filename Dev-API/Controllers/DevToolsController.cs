@@ -22,14 +22,6 @@ namespace Dev_API.Controllers
             csvConverter.Cleanup();
         }
 
-        [HttpPost("/CreateJsonWithUniqueCoordinates")]
-        public void CreateJsonWithUniqueCoordinates()
-        {
-            CsvConverter csvConverter = new CsvConverter();
-            csvConverter.ExtractAndSaveUniqueCoordinates();
-            csvConverter.Cleanup();
-        }
-
         [HttpPost("/CreateJsonWithAllCities")]
         public void CreateJsonWithAllCities()
         {
@@ -38,14 +30,26 @@ namespace Dev_API.Controllers
             csvConverter.Cleanup();
         }
 
-        [HttpPost("/CreateAlleFilesAtOnce")]
-        public void CreateAlleFilesAtOnce()
+        [HttpPost("/CreateAllFilesAtOnce")]
+        public void CreateAllFilesAtOnce()
         {
             CsvConverter csvConverter = new CsvConverter();
             csvConverter.ReadAndConvertCsvFile();
-            csvConverter.ExtractAndSaveUniqueCoordinates();
             csvConverter.GenerateCityListFile();
             csvConverter.Cleanup();
         }
+
+
+        [HttpPost("/CreateHistoricWeatherData")]
+        public void CreateHistoricalWeatherDataAsync()
+        {
+
+            CsvConverter csvConverter = new CsvConverter();
+            HistoricWeatherDataManager historicWeatherDataManager = new HistoricWeatherDataManager();
+            historicWeatherDataManager.CreateHistoricalWeatherData();
+
+            //csvConverter.Cleanup();
+        }
     }
 }
+

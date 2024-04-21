@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -22,11 +23,14 @@ namespace Dev_API.Managers
         /// converts these objects into a JSON formatted string, and writes this string to a new JSON file.
         /// This method is responsible for orchestrating the reading, processing, and saving of address data.
         /// </summary>
+        private const int MaxRandomAddresses = 250000;
+
         public void ReadAndConvertCsvFile()
         {
             string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
             string csvFilePath = Path.Combine(dataFolderPath, "addresses.csv");
-            string jsonFilePath = Path.Combine(dataFolderPath, "locations.json");
+            string jsonAllFilePath = Path.Combine(dataFolderPath, "locationsAll.json");
+            string jsonSelectedFilePath = Path.Combine(dataFolderPath, "locationsSelected.json");
 
             if (!File.Exists(csvFilePath))
             {
@@ -34,40 +38,63 @@ namespace Dev_API.Managers
                 return;
             }
 
-            var addresses = ReadAndParseCSV(csvFilePath);
-            SaveDataAsJson(addresses, jsonFilePath);
+            var addresses = ReadAndParseCSV(csvFilePath).ToList();
+            SaveDataAsJson(addresses, jsonAllFilePath);
+
+            var selectedAddresses = SelectRandomAddresses(addresses);
+            SaveDataAsJson(selectedAddresses, jsonSelectedFilePath);
+
+            ExtractAndSaveUniqueCoordinates(selectedAddresses, "uniqueCoordinatesSelected.json");
+            ExtractAndSaveUniqueCoordinates(addresses, "uniqueCoordinatesAll.json");
+        }
+
+
+
+        private List<Address> SelectRandomAddresses(List<Address> addresses)
+        {
+            var random = new Random();
+            return addresses.OrderBy(x => random.Next()).Take(MaxRandomAddresses).ToList();
         }
 
 
 
 
-        /// <summary>
-        /// Extracts unique geographic coordinates from the previously created 'locations.json' file,
-        /// formats them into a unique set of latitude-longitude strings, and saves this set as a new JSON file.
-        /// This method ensures that each coordinate is represented once, eliminating duplicates.
-        /// </summary>
-        public void ExtractAndSaveUniqueCoordinates()
+        private void ExtractAndSaveUniqueCoordinates(IEnumerable<Address> addresses, string fileName)
         {
             string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
-            string jsonInputPath = Path.Combine(dataFolderPath, "locations.json");
-            string jsonOutputPath = Path.Combine(dataFolderPath, "uniqueCoordinates.json");
+            string jsonOutputPath = Path.Combine(dataFolderPath, fileName);
 
-            if (!File.Exists(jsonInputPath))
-            {
-                Console.WriteLine("JSON file not found: " + jsonInputPath);
-                return;
-            }
-
-            string jsonData = File.ReadAllText(jsonInputPath);
-            var addresses = JsonSerializer.Deserialize<List<Address>>(jsonData);
-            var uniqueCoordinates = new HashSet<string>();
-
-            foreach (var address in addresses)
-            {
-                uniqueCoordinates.Add($"{address.Latitude}-{address.Longitude}");
-            }
-
+            var uniqueCoordinates = addresses.Select(a => FormatCoordinate(a.Latitude) + "-" + FormatCoordinate(a.Longitude)).ToHashSet();
             SaveDataAsJson(uniqueCoordinates, jsonOutputPath);
+        }
+
+        private string FormatCoordinate(string coordinate)
+        {
+            int dotIndex = coordinate.IndexOf('.');
+            if (dotIndex == -1)
+            {
+                // Hvis der ikke er noget punktum, antages det at være et helt tal, og derfor tilføjes .00000000
+                return coordinate.PadLeft(3, '0') + ".00000000";
+            }
+
+            string beforeDot = coordinate.Substring(0, dotIndex);
+            string afterDot = coordinate.Substring(dotIndex + 1);
+
+            if (beforeDot.Length < 2)
+            {
+                beforeDot = beforeDot.PadLeft(2, '0'); // Tilføj '0' foran hvis nødvendigt
+            }
+
+            if (afterDot.Length < 8)
+            {
+                afterDot = afterDot.PadRight(8, '0'); // Tilføj '0' bagved indtil der er 8 cifre
+            }
+            else if (afterDot.Length > 8)
+            {
+                afterDot = afterDot.Substring(0, 8); // Klip til 8 cifre hvis der er flere
+            }
+
+            return beforeDot + '.' + afterDot;
         }
 
 
@@ -86,7 +113,7 @@ namespace Dev_API.Managers
             using (var reader = new StreamReader(filePath, Encoding.UTF8))
             {
                 string headerLine = reader.ReadLine();
-           
+
                 var headers = SplitCsvLine(headerLine);
 
                 int streetNameIndex = headers.IndexOf("vejnavn");
@@ -174,7 +201,7 @@ namespace Dev_API.Managers
         public void GenerateCityListFile()
         {
             string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
-            string jsonFilePath = Path.Combine(dataFolderPath, "locations.json");
+            string jsonFilePath = Path.Combine(dataFolderPath, "locationsAll.json");
             string cityFilePath = Path.Combine(dataFolderPath, "Cities.json");
 
             if (!File.Exists(jsonFilePath))
@@ -218,6 +245,7 @@ namespace Dev_API.Managers
 
 
 
+
         /// <summary>
         /// Performs application cleanup tasks including garbage collection to free memory, 
         /// clearing the console window, and killing all process instances except the current one.
@@ -230,7 +258,7 @@ namespace Dev_API.Managers
             GC.WaitForPendingFinalizers();
 
             // Clear the console window
-            Console.Clear();
+            //Console.Clear();
 
             // Close all existing process windows to free up resources
             Process currentProcess = Process.GetCurrentProcess();

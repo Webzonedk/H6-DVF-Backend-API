@@ -1,4 +1,10 @@
+using DVF_API.Data.Interfaces;
 using DVF_API.Data.Mappers;
+using DVF_API.Data.Repositories;
+using DVF_API.Domain.BusinessLogic;
+using DVF_API.Domain.Interfaces;
+using DVF_API.Services.Interfaces;
+using DVF_API.Services.ServiceImplementation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +16,26 @@ builder.Services.AddSwaggerGen();
 // Configure DbContext with SQL Server
 builder.Services.AddDbContext<DvfDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("WeatherDataDb")));
+
+
+
+
+//Dependency injections
+builder.Services.AddTransient<IDataRepository, CrudDatabaseRepository>();
+builder.Services.AddTransient<IDataRepository, CrudFileRepository>();
+builder.Services.AddTransient<IDeveloperRepository, DeveloperRepository>();
+builder.Services.AddTransient<ILocationRepository, LocationRepository>();
+
+builder.Services.AddTransient<IAddWeatherDataService, AddWeatherDataService>();
+builder.Services.AddTransient<IDataService, DataService>();
+builder.Services.AddTransient<IDeveloperService, DeveloperService>();
+builder.Services.AddTransient<IMaintenanceService, MaintenanceService>();
+
+builder.Services.AddTransient<IAddWeatherDataService, DataService>();
+builder.Services.AddTransient<IHistoricWeatherDataManager, HistoricWeatherDataManager>();
+builder.Services.AddTransient<ISolarPositionManager, SolarPositionManager>();
+builder.Services.AddTransient<IDeveloperRepository, DeveloperRepository>();
+builder.Services.AddTransient<ILocationRepository, LocationRepository>();
 
 
 var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";

@@ -362,8 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Ignore 'Data'folder in Dev-API project
-Dev-API/Data/
+# Ignore Sources folder in Dev-API
+Dev-API/Sources/
 
-# Ignorer 'Sources' mappen i ProjectB
+# Ignore Sources folder in DVF-API
 DVF-API/Sources/

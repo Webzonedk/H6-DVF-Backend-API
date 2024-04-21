@@ -1,13 +1,60 @@
-﻿namespace DVF_API.Data.Repositories
+﻿using DVF_API.Data.Interfaces;
+using DVF_API.Services.Interfaces;
+using DVF_API.SharedLib.Dtos;
+
+namespace DVF_API.Data.Repositories
 {
-    public class WeatherDataRepository
+    public class CrudFileRepository: IDataRepository
     {
         private string _basePath;
 
-        public WeatherDataRepository(string basePath)
+        private readonly IDataRepository _dataRepository;
+
+        internal CrudFileRepository(IDataRepository dataRepository)
+        {
+            _dataRepository = dataRepository;
+        }
+
+        public CrudFileRepository(string basePath)
         {
             _basePath = basePath; // Sæt stien til mappen, hvor vejrdatafilerne er placeret
         }
+
+        public MetaDataDto FetchWeatherData(SearchDto seachDto)
+        {
+            return null;
+        }
+
+        public void DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
+        {
+            throw new NotImplementedException();
+        }
+
+        public List<string> FetchLoactionCoordinates(int fromIndex, int toIndex)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int FetchLocationCount(string partialAddress)
+        {
+            throw new NotImplementedException();
+        }
+
+        public List<string> FetchMatchingAddresses(string partialAddress)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void RestoreAllData()
+        {
+            throw new NotImplementedException();
+        }
+
 
 
         /// <summary>

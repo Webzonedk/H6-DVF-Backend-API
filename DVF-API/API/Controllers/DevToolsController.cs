@@ -1,4 +1,5 @@
 ﻿using DVF_API.Services;
+using DVF_API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DVF_API.API.Controllers
@@ -8,19 +9,36 @@ namespace DVF_API.API.Controllers
     public class DevToolsController : ControllerBase
     {
 
-        private readonly ILogger<DevToolsController> _logger;
+        #region fields
+        private readonly IDeveloperService _developerService;
+        #endregion
 
-        public DevToolsController(ILogger<DevToolsController> logger)
+        #region Constructor
+        internal DevToolsController(IDeveloperService developerService)
         {
-            _logger = logger;
+            _developerService = developerService;
+        }
+        #endregion
+
+        [HttpPost("CreateHistoricWeatherData")]
+        public async Task<IActionResult> CreateHistoricWeatherData([FromBody] bool createFiles, bool createDB)
+        {
+          _developerService.CreateHistoricWeatherData(createFiles, createDB);
+            return Ok(new { message = "Historic weather data created" });
         }
 
-        [HttpGet("GetWeatherDataFromAPI")]
-        public void GetWeatherDataFromAPI()
+        [HttpPost("StartSimulator")]
+        public async Task<IActionResult> StartSimulator()
         {
-            CsvConverter csvConverter = new CsvConverter();
-            csvConverter.ReadAndConvertCsvFile();
-            csvConverter.Cleanup();
+          _developerService.StartSimulator();
+            return Ok(new { message = "Simulator started" });
+        }
+
+        [HttpPost("StopSimulator")]
+        public async Task<IActionResult> StopSimulator()
+        {
+          _developerService.StopSimulator();
+            return Ok(new { message = "Simulator stopped" });
         }
     }
 }

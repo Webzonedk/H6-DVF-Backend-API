@@ -1,6 +1,6 @@
-﻿namespace DVF_API.Services.Models
+﻿namespace DVF_API.SharedLib.Dtos
 {
-    public class Location
+    public class LocationDto
     {
         public double latitude { get; set; }
         public double longitude { get; set; }

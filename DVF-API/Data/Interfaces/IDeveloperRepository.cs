@@ -1,7 +1,10 @@
-﻿namespace DVF_API.Data.Interfaces
+﻿using DVF_API.Data.Models;
+
+namespace DVF_API.Data.Interfaces
 {
     public interface IDeveloperRepository
     {
-        public void SaveHistoricDataToFile();
+        Task SaveDataToFileAsync(WeatherData data, string latitude, string longitude);
+        Task SaveDataToDatabaseAsync(WeatherData data);
     }
 }
