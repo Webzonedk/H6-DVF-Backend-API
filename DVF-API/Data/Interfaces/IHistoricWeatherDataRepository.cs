@@ -7,5 +7,7 @@ namespace DVF_API.Data.Interfaces
     {
         Task SaveDataToFileAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder);
         Task SaveDataToDatabaseAsync(WeatherData data);
+        Task InsertLocationsToDB(List<Location> locations);
+        Task InsertCitiesToDB(List<City> cities);
     }
 }

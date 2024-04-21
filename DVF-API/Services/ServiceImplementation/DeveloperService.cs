@@ -1,4 +1,5 @@
 ﻿using DVF_API.Data.Interfaces;
+using DVF_API.Data.Models;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Diagnostics;
@@ -10,6 +11,7 @@ namespace DVF_API.Services.ServiceImplementation
     public class DeveloperService : IDeveloperService
     {
         private readonly IDeveloperService _developerService;
+
 
         private readonly HttpClient _client = new HttpClient();
 #if DEBUG
@@ -56,6 +58,81 @@ namespace DVF_API.Services.ServiceImplementation
         public void StopSimulator()
         {
             throw new System.NotImplementedException();
+        }
+
+        /// <summary>
+        /// method to load & deserialize json data into models
+        /// </summary>
+        /// <returns></returns>
+        public void CreateCities()
+        {
+            string _LocationsCities = "..\\DVF-API\\Sources\\Cities.json";
+          
+            List<City>? cityModel = JsonSerializer.Deserialize<List<City>>(_LocationsCities, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (cityModel is null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                Console.WriteLine(cityModel[i]);
+            }
+            
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _historicWeatherDataRepository.InsertCitiesToDB(cityModel);
+
+                }
+                catch (Exception ex)
+                {
+
+                    //ready for loggin
+                }
+            });
+
+
+
+
+        }
+
+        public void CreateLocations()
+        {
+            string _LocationsFilePath = "..\\DVF-API\\Sources\\LocationsSelected.json";
+
+            List<Location>? locations = JsonSerializer.Deserialize<List<Location>>(_LocationsFilePath, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if(locations is null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                Console.WriteLine(locations[i]);
+            }
+
+            Task.Run(async () =>
+            {
+                try
+                {
+
+                    await _historicWeatherDataRepository.InsertLocationsToDB(locations);
+
+                }
+                catch (Exception ex)
+                {
+
+                    //ready for loggin
+                }
+            });
+
+            
+
         }
 
 

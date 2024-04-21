@@ -40,5 +40,20 @@ namespace DVF_API.API.Controllers
           _developerService.StopSimulator();
             return Ok(new { message = "Simulator stopped" });
         }
+
+        [HttpPost("CreateCities")]
+        public async Task<IActionResult> CreateCities()
+        {
+            _developerService.CreateCities();
+            return Ok(new { message = "Cities created" });
+        }
+
+        [HttpPost("CreateLocations")]
+        public async Task<IActionResult> CreateLocations()
+        {
+            _developerService.CreateLocations();
+            return Ok(new { message = "Locations created" });
+        }
+
     }
 }
