@@ -7,7 +7,7 @@ namespace DVF_API.Services.Interfaces
         void CreateHistoricWeatherDataAsync(bool createFiles, bool createDB);
         void StartSimulator();
         void StopSimulator();
-        List<City> CreateCities();
-        List<Location> CreateLocations();
+        void CreateCities();
+        void CreateLocations();
     }
 }

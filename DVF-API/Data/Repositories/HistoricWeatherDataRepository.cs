@@ -2,6 +2,7 @@
 using DVF_API.Data.Models;
 using DVF_API.SharedLib.Dtos;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
@@ -45,58 +46,59 @@ namespace DVF_API.Data.Repositories
         }
 
 
-        public void InsertCitiesToDB(List<City> city)
+        public async Task InsertCitiesToDB(List<City> cities)
         {
-            string query = @"INSERT INTO Cities (PostalCode, City)
-                             VALUES (@PostalCode, @City)";
+            await using SqlConnection connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            foreach (City city in cities)
             {
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@PostalCode", city.PostalCode);
-                    command.Parameters.AddWithValue("@City", city.Name);
+                string query = @"INSERT INTO Cities (PostalCode, City)VALUES (@PostalCode, @City)";
 
-                    try
-                    {
-                        connection.Open();
-                        command.ExecuteNonQuery();
-                        Console.WriteLine("City inserted successfully.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error inserting city: {ex.Message}");
-                    }
+                await using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@PostalCode", city.PostalCode);
+                command.Parameters.AddWithValue("@City", city.Name);
+
+                try
+                {
+                    await command.ExecuteNonQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    //ready for logging
+                     Debug.WriteLine(ex.Message);
                 }
             }
         }
 
-        public void InsertLocationsToDB(List<Location> location)
+
+
+
+        public async Task InsertLocationsToDB(List<Location> locations)
         {
-            string query = @"INSERT INTO Locations (StreetName, HouseNumber, PostalCode, City, Latitude, Longitude)
-                             VALUES (@StreetName, @HouseNumber, @PostalCode, @City, @Latitude, @Longitude)";
+            await using SqlConnection connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            foreach (Location location in locations)
             {
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@StreetName", location.StreetName);
-                    command.Parameters.AddWithValue("@HouseNumber", location.StreetNumber);
-                    command.Parameters.AddWithValue("@PostalCode", location.City.PostalCode);
-                    command.Parameters.AddWithValue("@City", location.City);
-                    command.Parameters.AddWithValue("@Latitude", location.Latitude);
-                    command.Parameters.AddWithValue("@Longitude", location.Longitude);
+                string query = @"INSERT INTO Cities (PostalCode, City)VALUES (@PostalCode, @City)";
 
-                    try
-                    {
-                        connection.Open();
-                        command.ExecuteNonQuery();
-                        Console.WriteLine("Location inserted successfully.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error inserting location: {ex.Message}");
-                    }
+                using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@StreetName", location.StreetName);
+                command.Parameters.AddWithValue("@HouseNumber", location.StreetNumber);
+                command.Parameters.AddWithValue("@PostalCode", location.City.PostalCode);
+                command.Parameters.AddWithValue("@City", location.City);
+                command.Parameters.AddWithValue("@Latitude", location.Latitude);
+                command.Parameters.AddWithValue("@Longitude", location.Longitude);
+
+                try
+                {
+                    connection.Open();
+                    command.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex.Message);
                 }
             }
         }

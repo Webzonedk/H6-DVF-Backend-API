@@ -12,6 +12,7 @@ namespace DVF_API.Services.ServiceImplementation
     {
         private readonly IDeveloperService _developerService;
 
+
         private readonly HttpClient _client = new HttpClient();
 #if DEBUG
         private string _baseFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "weatherData\\");
@@ -63,32 +64,75 @@ namespace DVF_API.Services.ServiceImplementation
         /// method to load & deserialize json data into models
         /// </summary>
         /// <returns></returns>
-        public List<City> CreateCities()
+        public void CreateCities()
         {
             string _LocationsCities = "..\\DVF-API\\Sources\\Cities.json";
-            List<City> cityModel = JsonSerializer.Deserialize<List<City>>(_LocationsCities, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+          
+            List<City>? cityModel = JsonSerializer.Deserialize<List<City>>(_LocationsCities, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            foreach (var city in cityModel)
+            if (cityModel is null)
             {
-                Debug.WriteLine(cityModel);
-
+                return;
             }
-            return cityModel;
+
+            for (int i = 0; i < 10; i++)
+            {
+                Console.WriteLine(cityModel[i]);
+            }
+            
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _historicWeatherDataRepository.InsertCitiesToDB(cityModel);
+
+                }
+                catch (Exception ex)
+                {
+
+                    //ready for loggin
+                }
+            });
+
+
+
 
         }
 
-        public List<Location> CreateLocations()
+        public void CreateLocations()
         {
             string _LocationsFilePath = "..\\DVF-API\\Sources\\LocationsSelected.json";
 
-            List<Location> locations = JsonSerializer.Deserialize<List<Location>>(_LocationsFilePath, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            List<Location>? locations = JsonSerializer.Deserialize<List<Location>>(_LocationsFilePath, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            foreach (var location in locations)
+            if(locations is null)
             {
-                Debug.WriteLine(location);
-
+                return;
             }
-            return locations;
+
+            for (int i = 0; i < 10; i++)
+            {
+                Console.WriteLine(locations[i]);
+            }
+
+            Task.Run(async () =>
+            {
+                try
+                {
+
+                    await _historicWeatherDataRepository.InsertLocationsToDB(locations);
+
+                }
+                catch (Exception ex)
+                {
+
+                    //ready for loggin
+                }
+            });
+
+            
+
         }
 
 
