@@ -10,7 +10,7 @@ namespace DVF_API.API.Controllers
     {
         private readonly IAddWeatherDataService _addWeatherDataService;
 
-        internal WeatherStationController(IAddWeatherDataService addWeatherDataService)
+        public WeatherStationController(IAddWeatherDataService addWeatherDataService)
         {
             _addWeatherDataService = addWeatherDataService;
         }

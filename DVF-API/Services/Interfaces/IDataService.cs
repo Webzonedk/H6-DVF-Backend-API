@@ -2,7 +2,7 @@
 
 namespace DVF_API.Services.Interfaces
 {
-    internal interface IDataService
+    public interface IDataService
     {
         List<string> GetAddressesFromDBMatchingInputs(string partialAddress);
         int CountLocations();

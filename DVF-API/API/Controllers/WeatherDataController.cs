@@ -15,7 +15,7 @@ namespace DVF_API.API.Controllers
         #endregion
 
         #region Constructor
-        internal WeatherDataController(IDataService dataService)
+        public WeatherDataController(IDataService dataService)
         {
             _dataService = dataService;
         }

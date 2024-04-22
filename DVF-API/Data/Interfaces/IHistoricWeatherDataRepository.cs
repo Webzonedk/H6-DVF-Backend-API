@@ -6,8 +6,8 @@ namespace DVF_API.Data.Interfaces
     public interface IHistoricWeatherDataRepository
     {
         Task SaveDataToFileAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder);
-        Task SaveDataToDatabaseAsync(WeatherData data);
-        Task InsertLocationsToDB(List<Location> locations);
+        Task SaveDataToDatabaseAsync(HistoricWeatherDataDto data, string latitude, string longitude);
+        Task InsertLocationsToDB(List<LocationDto> locations);
         Task InsertCitiesToDB(List<City> cities);
     }
 }

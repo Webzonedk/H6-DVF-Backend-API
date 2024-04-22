@@ -1,6 +1,7 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Data.Models;
 using DVF_API.SharedLib.Dtos;
+using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
@@ -17,7 +18,7 @@ namespace DVF_API.Data.Repositories
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
-            
+
         }
 
 
@@ -32,9 +33,9 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToDatabaseAsync(WeatherData data)
+        public async Task SaveDataToDatabaseAsync(HistoricWeatherDataDto data, string latitude, string longitude)
         {
-
+            //Debug.WriteLine("Saving data to database...");
 
         }
 
@@ -44,54 +45,75 @@ namespace DVF_API.Data.Repositories
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
+            string query = @"INSERT INTO Cities (PostalCode, CityName)VALUES (@PostalCode, @CityName)";
+
+            await using SqlCommand command = new SqlCommand(query, connection);
+
+            command.Parameters.Add("@PostalCode", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@CityName", SqlDbType.VarChar, 255);
+
             foreach (City city in cities)
             {
-                string query = @"INSERT INTO Cities (PostalCode, City)VALUES (@PostalCode, @City)";
-
-                await using SqlCommand command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@PostalCode", city.PostalCode);
-                command.Parameters.AddWithValue("@City", city.Name);
+                command.Parameters["@PostalCode"].Value = city.PostalCode;
+                command.Parameters["@CityName"].Value = city.CityName;
 
                 try
                 {
-                    await command.ExecuteNonQueryAsync();
+                    int result = await command.ExecuteNonQueryAsync();
+                    if (result == 0)
+                    {
+                        Debug.WriteLine("No rows inserted. Check if the city with given PostalCode exists.");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    //ready for logging
-                     Debug.WriteLine(ex.Message);
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
                 }
             }
         }
 
 
 
-
-        public async Task InsertLocationsToDB(List<Location> locations)
+        public async Task InsertLocationsToDB(List<LocationDto> locations)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            foreach (Location location in locations)
-            {
-                string query = @"INSERT INTO Cities (PostalCode, City)VALUES (@PostalCode, @City)";
+            // Forbered SQL-command en gang
+            string query = @"INSERT INTO Locations (Latitude, Longitude, StreetName, StreetNumber, CityId) 
+                     VALUES (@Latitude, @Longitude, @StreetName, @StreetNumber, 
+                             (SELECT CityId FROM Cities WHERE PostalCode = @PostalCode))";
 
-                using SqlCommand command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@StreetName", location.StreetName);
-                command.Parameters.AddWithValue("@HouseNumber", location.StreetNumber);
-                command.Parameters.AddWithValue("@PostalCode", location.City.PostalCode);
-                command.Parameters.AddWithValue("@City", location.City);
-                command.Parameters.AddWithValue("@Latitude", location.Latitude);
-                command.Parameters.AddWithValue("@Longitude", location.Longitude);
+            await using SqlCommand command = new SqlCommand(query, connection);
+
+            // Definer parametre én gang
+            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@StreetName", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@StreetNumber", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@PostalCode", SqlDbType.VarChar, 255);
+
+            foreach (LocationDto location in locations)
+            {
+                command.Parameters["@Latitude"].Value = location.Latitude;
+                command.Parameters["@Longitude"].Value = location.Longitude;
+                command.Parameters["@StreetName"].Value = location.StreetName;
+                command.Parameters["@StreetNumber"].Value = location.StreetNumber;
+                command.Parameters["@PostalCode"].Value = location.PostalCode;
 
                 try
                 {
-                    connection.Open();
-                    command.ExecuteNonQuery();
+                    int result = await command.ExecuteNonQueryAsync();
+                    if (result == 0)
+                    {
+                        Debug.WriteLine("No rows inserted. Check if the city with given PostalCode exists.");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(ex.Message);
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
                 }
             }
         }
@@ -100,8 +122,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-
-        private async Task SaveDataAsBinaryAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        private async Task SaveDataAsBinaryAsync_old(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
         {
             var groupedData = data.Hourly.Time
                                     .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
@@ -136,6 +157,72 @@ namespace DVF_API.Data.Repositories
                             binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
                         });
                     }
+                }
+            }
+        }
+
+
+
+        //private async Task SaveDataAsBinaryAsync(List<HistoricWeatherDataDto> allData, string baseFolder)
+        //{
+        //    await Task.Run(() =>
+        //    {
+        //        Parallel.ForEach(allData, async (data) =>
+        //        {
+        //            string latitude = data.Latitude;
+        //            string longitude = data.Longitude;
+        //            var yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", DateTime.Now.ToString("yyyy"));
+        //            if (!Directory.Exists(yearFolder))
+        //                Directory.CreateDirectory(yearFolder);
+
+        //            string filePath = Path.Combine(yearFolder, $"{DateTime.Now:MMdd}.bin");
+        //            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+        //            using (var binWriter = new BinaryWriter(fileStream))
+        //            {
+        //                // Write your data here
+        //                await fileStream.FlushAsync();
+        //            }
+        //        });
+        //    });
+        //}
+
+
+
+
+        private async Task SaveDataAsBinaryAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        {
+            var timeStamps = data.Hourly.Time.Select(DateTime.Parse).ToList();
+            var groupedData = timeStamps
+                                .Select((time, index) => new { Time = time, Index = index })
+                                .GroupBy(t => t.Time.ToString("yyyyMMdd"))
+                                .ToDictionary(g => g.Key, g => g.Select(x => x.Index).ToList());
+
+            foreach (var entry in groupedData)
+            {
+                DateTime entryDate = DateTime.ParseExact(entry.Key, "yyyyMMdd", CultureInfo.InvariantCulture);
+                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
+
+                if (!Directory.Exists(yearFolder))
+                    Directory.CreateDirectory(yearFolder);
+
+                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                using (var binWriter = new BinaryWriter(fileStream))
+                {
+                    foreach (var index in entry.Value)
+                    {
+                        binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[index]));
+                        binWriter.Write(data.Hourly.Temperature_2m[index]);
+                        binWriter.Write(data.Hourly.Relative_Humidity_2m[index]);
+                        binWriter.Write(data.Hourly.Rain[index]);
+                        binWriter.Write(data.Hourly.Wind_Speed_10m[index]);
+                        binWriter.Write(data.Hourly.Wind_Direction_10m[index]);
+                        binWriter.Write(data.Hourly.Wind_Gusts_10m[index]);
+                        binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[index]);
+                    }
+                    // Brug FileStream's FlushAsync metode i stedet for BinaryWriter
+                    await fileStream.FlushAsync();
                 }
             }
         }
