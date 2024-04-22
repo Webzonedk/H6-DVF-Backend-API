@@ -1,14 +1,17 @@
-﻿using DVF_API.Services.Interfaces;
+﻿using DVF_API.Data.Interfaces;
+using DVF_API.Services.Interfaces;
 
 namespace DVF_API.Services.ServiceImplementation
 {
     public class MaintenanceService: IMaintenanceService
     {
-        private readonly IMaintenanceService _maintenanceService;
 
-        internal MaintenanceService(IMaintenanceService maintenanceService)
+        private readonly IDatabaseRepository _databaseRepository;
+        private readonly IFileRepository _fileRepository;
+       public MaintenanceService(IDatabaseRepository databaseRepository, IFileRepository fileRepository)
         {
-            _maintenanceService = maintenanceService;
+            _databaseRepository = databaseRepository;
+            _fileRepository = fileRepository;
         }
 
 
@@ -19,7 +22,7 @@ namespace DVF_API.Services.ServiceImplementation
         }
         public void RestoreData()
         {
-            _maintenanceService.RestoreData();
+            
         }
     }
 }

@@ -13,11 +13,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 
-//builder.Configuration.GetConnectionString("WeatherDataDb");
+
+builder.Configuration.GetConnectionString("WeatherDataDb");
 
 //Dependency injections
-builder.Services.AddTransient<IDataRepository, CrudDatabaseRepository>();
-builder.Services.AddTransient<IDataRepository, CrudFileRepository>();
+builder.Services.AddTransient<IDatabaseRepository, CrudDatabaseRepository>();
+builder.Services.AddTransient<IFileRepository, CrudFileRepository>();
 builder.Services.AddTransient<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
 
 builder.Services.AddTransient<IAddWeatherDataService, AddWeatherDataService>();

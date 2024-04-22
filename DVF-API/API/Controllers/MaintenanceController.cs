@@ -13,7 +13,7 @@ namespace DVF_API.API.Controllers
         #endregion
 
         #region Constructor
-        internal MaintenanceController(IMaintenanceService maintenanceService)
+        public MaintenanceController(IMaintenanceService maintenanceService)
         {
             _maintenanceService = maintenanceService;
         }

@@ -2,7 +2,7 @@
 
 namespace DVF_API.Services.Interfaces
 {
-    internal interface IAddWeatherDataService
+    public interface IAddWeatherDataService
     {
         public void ApplyWeatherData(WeatherDataFromIOT weatherDataFromIOTDto);
     }

@@ -1,4 +1,5 @@
-﻿using DVF_API.Services.Interfaces;
+﻿using DVF_API.Data.Interfaces;
+using DVF_API.Services.Interfaces;
 using DVF_API.Services.Models;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -6,12 +7,14 @@ namespace DVF_API.Services.ServiceImplementation
     public class AddWeatherDataService : IAddWeatherDataService
     {
         #region fields
-        private readonly IAddWeatherDataService _addWeatherDataService;
+        private readonly IDatabaseRepository _databaseRepository;
+        private readonly IFileRepository _fileRepository;
         #endregion
 
-        internal AddWeatherDataService(IAddWeatherDataService addWeatherDataService)
+       public AddWeatherDataService(IDatabaseRepository databaseRepository, IFileRepository fileRepository)
         {
-            _addWeatherDataService = addWeatherDataService;
+            _databaseRepository = databaseRepository;
+            _fileRepository = fileRepository;
         }
 
 
