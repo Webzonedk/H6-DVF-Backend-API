@@ -2,6 +2,10 @@
 using DVF_API.SharedLib.Dtos;
 using System.Globalization;
 using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Data;
+using System;
+using DVF_API.Data.Models;
 
 
 namespace DVF_API.Data.Repositories
@@ -11,24 +15,24 @@ namespace DVF_API.Data.Repositories
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
 
-      public CrudDatabaseRepository(IConfiguration configuration)
+        public CrudDatabaseRepository(IConfiguration configuration)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
         }
-      //    private readonly IDatabaseRepository _databaseRepository;
-      //  private readonly ILocationRepository _locationRepository;
-      //  private readonly IConfiguration _configuration;
-      //  private readonly string _connectionString;
+        //    private readonly IDatabaseRepository _databaseRepository;
+        //  private readonly ILocationRepository _locationRepository;
+        //  private readonly IConfiguration _configuration;
+        //  private readonly string _connectionString;
 
-      //public CrudDatabaseRepository(IDatabaseRepository databaseRepository, IConfiguration configuration, ILocationRepository locationRepository)
-      //  {
-      //      _locationRepository = locationRepository;
-      //      _databaseRepository = databaseRepository;
-      //      _configuration = configuration;
-      //      _connectionString = _configuration.GetConnectionString("WeatherDataDb");
-      //  }
-  
+        //public CrudDatabaseRepository(IDatabaseRepository databaseRepository, IConfiguration configuration, ILocationRepository locationRepository)
+        //  {
+        //      _locationRepository = locationRepository;
+        //      _databaseRepository = databaseRepository;
+        //      _configuration = configuration;
+        //      _connectionString = _configuration.GetConnectionString("WeatherDataDb");
+        //  }
+
 
         public MetaDataDto FetchWeatherData(SearchDto searchDto)
         {
@@ -74,31 +78,124 @@ namespace DVF_API.Data.Repositories
             throw new NotImplementedException();
         }
 
-        public List<string> FetchLoactionCoordinates(int fromIndex, int toIndex)
+        public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
         {
-            throw new NotImplementedException();
+            await using SqlConnection connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+
+            string query = "SELECT * FROM Locations WHERE LocationId BETWEEN @fromIndex AND @toIndex";
+            await using SqlCommand command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@fromIndex", fromIndex);
+            command.Parameters.AddWithValue("@toIndex", toIndex);
+
+            try
+            {
+                var result = await command.ExecuteReaderAsync();
+                List<string> coordinates = new List<string>();
+
+                while (await result.ReadAsync())
+                {
+                    // Read Latitude and Longitude values from the result set
+                    string latitude = result["Latitude"].ToString();
+                    string longitude = result["Longitude"].ToString();
+
+                    // Combine Latitude and Longitude into a single string
+                    string coordinate = $"{latitude}-{longitude}";
+
+                    // Add the combined coordinate to the list
+                    coordinates.Add(coordinate);
+                }
+                return coordinates;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred: {ex.Message}");
+                // Ready for logging
+
+            }
+            return null;
         }
 
-        public int FetchLocationCount(string partialAddress)
+        public async Task<int> FetchLocationCount()
         {
-            throw new NotImplementedException();
+            await using SqlConnection connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = "SELECT COUNT(*) FROM Locations";
+            await using SqlCommand command = new SqlCommand(query, connection);
+
+            try
+            {
+                var result = await command.ExecuteReaderAsync();
+                if (await result.ReadAsync())
+                {
+                    return result.GetInt32(0);
+
+                }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred: {ex.Message}");
+                // Ready for logging
+                return 0;
+            }
+
         }
 
-        public List<string> FetchMatchingAddresses(string partialAddress)
+        public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
         {
-            throw new NotImplementedException();
+            await using SqlConnection connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode,Cities.CityName FROM Locations " +
+                "JOIN Cities ON Locations.CityId = Cities.CityId" +
+                "WHERE(Locations.StreetName + ' ' + Locations.StreetNumber LIKE @searchCriteria " +
+                "OR Cities.PostalCode LIKE @searchCriteria OR Cities.CityName LIKE @searchCriteria)";
+
+            
+            await using SqlCommand command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@searchCriteria", partialAddress);
+
+            try
+            {
+                List<string> addresses = new List<string>();
+
+                var result = await command.ExecuteReaderAsync();
+                while (await result.ReadAsync())
+                {
+                    // Combine columns into a single string with the specified format for each row
+                    string combinedAddress = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+
+                    // Add the combined string to the list
+                    addresses.Add(combinedAddress);
+                }
+
+                return addresses;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred: {ex.Message}");
+                // Ready for logging
+                return null; // Or any other default value in case of an error
+            }
         }
 
         public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
         {
-            
 
-           try{
 
-           }
-           catch{
+            try
+            {
 
-           }
+            }
+            catch
+            {
+
+            }
         }
 
         public void RestoreAllData()
