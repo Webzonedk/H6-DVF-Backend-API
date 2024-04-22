@@ -27,7 +27,7 @@ builder.Services.AddTransient<IDeveloperService, DeveloperService>();
 builder.Services.AddTransient<IMaintenanceService, MaintenanceService>();
 
 builder.Services.AddTransient<ISolarPositionManager, SolarPositionManager>();
-builder.Services.AddTransient<IMaintenanceManager, MaintenanceManager>();
+builder.Services.AddTransient<IUtilityManager, UtilityManager>();
 builder.Services.AddTransient<IBinaryConversionManager, BinaryConversionManager>();
 
 
