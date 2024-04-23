@@ -1,5 +1,6 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Data.Models;
+using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Diagnostics;
@@ -29,6 +30,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
+        private readonly IUtilityManager _utilityManager;
         private readonly IDatabaseRepository _databaseRepository;
         private readonly IFileRepository _fileRepository;
         #endregion
@@ -38,9 +40,10 @@ namespace DVF_API.Services.ServiceImplementation
 
         #region Constructors
 
-        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IDatabaseRepository databaseRepository, IFileRepository fileRepository)
+        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, IDatabaseRepository databaseRepository, IFileRepository fileRepository)
         {
             _historicWeatherDataRepository = historicWeatherDataRepository;
+            _utilityManager = utilityManager;
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;
         }
@@ -48,28 +51,46 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public async Task CreateHistoricWeatherDataAsync(bool createFiles, bool createDB)
+
+        public async Task CreateHistoricWeatherDataAsync(string password, string clientIp, bool createFiles, bool createDB)
         {
-            await CreateHistoricWeatherData(createFiles, createDB);
+            if (_utilityManager.Authenticate(password, clientIp))
+            {
+                await CreateHistoricWeatherData(createFiles, createDB);
+            }
         }
 
 
 
 
-        public async Task CreateCities()
+        public async Task CreateCities(string password, string clientIp)
         {
-            await CreateCitiesForRepository();
+            if (_utilityManager.Authenticate(password, clientIp))
+            {
+                //await CreateCitiesForRepository();
+            }
         }
 
 
-        public async Task CreateLocations()
+
+
+        public async Task CreateLocations(string password, string clientIp)
         {
-            await CreateLocationsForRepository();
+            if (_utilityManager.Authenticate(password, clientIp))
+            {
+                await CreateLocationsForRepository();
+            }
         }
 
-        public async Task CreateCoordinates()
+
+
+
+        public async Task CreateCoordinates(string password, string clientIp)
         {
-            await CreateCoordinatesRepository();
+            if (_utilityManager.Authenticate(password, clientIp))
+            {
+                await CreateCoordinatesRepository();
+            }
         }
 
 
@@ -133,18 +154,18 @@ namespace DVF_API.Services.ServiceImplementation
                 await foreach (var coordinate in ReadCoordinatesAsync(coordinatesFilePath))
                 {
                     string[] parts = coordinate.Split('-');
-                   
-                        HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
-                        if (modifiedData != null)
+
+                    HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
+                    if (modifiedData != null)
+                    {
+                        SaveToStorageDto saveToFileDto = new SaveToStorageDto
                         {
-                            SaveToStorageDto saveToFileDto = new SaveToStorageDto
-                            {
-                                HistoricWeatherData = modifiedData,
-                                Latitude = parts[0],
-                                Longitude = parts[1]
-                            };
-                            _saveToStorageDto.Add(saveToFileDto);
-                        }
+                            HistoricWeatherData = modifiedData,
+                            Latitude = parts[0],
+                            Longitude = parts[1]
+                        };
+                        _saveToStorageDto.Add(saveToFileDto);
+                    }
                 }
             }
             catch (Exception ex)
@@ -211,7 +232,6 @@ namespace DVF_API.Services.ServiceImplementation
                 }
             }
         }
-
 
 
 

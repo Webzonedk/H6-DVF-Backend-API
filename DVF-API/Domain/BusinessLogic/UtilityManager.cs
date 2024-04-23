@@ -16,10 +16,46 @@ namespace DVF_API.Domain.BusinessLogic
     /// </summary>
     public class UtilityManager : IUtilityManager
     {
+        private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
+        private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
 
 
         public UtilityManager()
         {
+        }
+
+
+
+
+
+        /// <summary>
+        /// Simple password-based authentication method that checks if the provided password matches the predefined secret password.
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="clientIp"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        /// <exception cref="UnauthorizedAccessException"></exception>
+        public bool Authenticate(string password, string clientIp)
+        {
+            if (_loginAttempts.TryGetValue(clientIp, out var loginInfo))
+            {
+                if (DateTime.UtcNow - loginInfo.lastAttempt < TimeSpan.FromMinutes(5) && loginInfo.attemptCount >= 5)
+                {
+                    throw new Exception("Too many failed attempts. Please try again later.");
+                }
+            }
+
+            if (password != VerySecretPassword)
+            {
+                var attemptCount = loginInfo.attemptCount + 1;
+                _loginAttempts[clientIp] = (DateTime.UtcNow, attemptCount);
+                throw new UnauthorizedAccessException("Unauthorized - Incorrect password");
+            }
+
+            // Reset the login attempts on successful password verification
+            _loginAttempts.Remove(clientIp);
+            return true;
         }
 
 
@@ -106,5 +142,9 @@ namespace DVF_API.Domain.BusinessLogic
             }
             return 0;
         }
+
+
+
+
     }
 }
