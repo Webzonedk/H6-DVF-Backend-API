@@ -16,17 +16,16 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly HttpClient _httpClient = new HttpClient();
 
         //private string _baseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "weatherData\\");
-        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/app/data/weatherData/";
-        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/app/data/deletedWeatherData/";
+        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
+        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
 
         //private string _coordinatesFilePath = "..\\DVF-API\\Sources\\UniqueCoordinatesSelected.json";
         private string _coordinatesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "UniqueCoordinatesSelected.json");
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
-        private DateTime _startDate = new DateTime(2024, 03, 30);
+        private DateTime _startDate = new DateTime(2024, 04, 01);
         private DateTime _endDate = new DateTime(2024, 04, 01);
-        private HistoricWeatherDataDto? _originalWeatherData;
-        private List<SaveToFileDto> _saveToFileDtoList = new List<SaveToFileDto>();
+        private List<SaveToStorageDto> _saveToStorageDto = new List<SaveToStorageDto>();
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
@@ -68,6 +67,11 @@ namespace DVF_API.Services.ServiceImplementation
             await CreateLocationsForRepository();
         }
 
+        public async Task CreateCoordinates()
+        {
+            await CreateCoordinatesRepository();
+        }
+
 
 
 
@@ -75,30 +79,34 @@ namespace DVF_API.Services.ServiceImplementation
         {
             try
             {
-                await GenerateAndSaveOriginalData(createFiles, createDB, _latitude, _longitude, _startDate, _endDate, _baseDirectory);
-                await ProcessAllCoordinates(createFiles, createDB, _coordinatesFilePath);
+                await RetreiveProcessWeatherData(_latitude, _longitude, _startDate, _endDate, _coordinatesFilePath);
+
+                List<Task> tasks = new List<Task>();
+
+                if (createFiles)
+                {
+                    var fileTask = _historicWeatherDataRepository.SaveDataToFileAsync(_saveToStorageDto, _baseDirectory);
+                    tasks.Add(fileTask);
+                }
+                if (createDB)
+                {
+                    var dbTask = _historicWeatherDataRepository.SaveDataToDatabaseAsync(_saveToStorageDto);
+                    tasks.Add(dbTask);
+                }
+
+                await Task.WhenAll(tasks);
             }
             catch (Exception ex)
             {
                 // Ready for logging
             }
-            finally
-            {
-                if (createFiles)
-                {
-                    await _historicWeatherDataRepository.SaveDataToFileAsync(_saveToFileDtoList, _baseDirectory);
-                }
-                if (createDB)
-                {
-                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(_saveToFileDtoList);
-                }
-            }
+
         }
 
 
 
 
-        private async Task GenerateAndSaveOriginalData(bool createFiles, bool createDB, string latitude, string longitude, DateTime startDate, DateTime endDate, string baseFolder)
+        private async Task RetreiveProcessWeatherData(string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath)
         {
             try
             {
@@ -106,19 +114,37 @@ namespace DVF_API.Services.ServiceImplementation
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
-                _originalWeatherData = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                await ProcessAllCoordinates(originalWeatherDataFromAPI, coordinatesFilePath);
+            }
+            catch (Exception ex)
+            {
+                // Ready for logging
+            }
+        }
 
-                if (_originalWeatherData != null)
+
+
+
+        private async Task ProcessAllCoordinates(HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath)
+        {
+            try
+            {
+                await foreach (var coordinate in ReadCoordinatesAsync(coordinatesFilePath))
                 {
-                    var formatedLatitude = FormatCoordinate(latitude);
-                    var formatedLongitude = FormatCoordinate(longitude);
-                    SaveToFileDto saveToFileDto = new SaveToFileDto
-                    {
-                        HistoricWeatherData = _originalWeatherData,
-                        Latitude = formatedLatitude,
-                        Longitude = formatedLongitude
-                    };
-                    _saveToFileDtoList.Add(saveToFileDto);
+                    string[] parts = coordinate.Split('-');
+                   
+                        HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
+                        if (modifiedData != null)
+                        {
+                            SaveToStorageDto saveToFileDto = new SaveToStorageDto
+                            {
+                                HistoricWeatherData = modifiedData,
+                                Latitude = parts[0],
+                                Longitude = parts[1]
+                            };
+                            _saveToStorageDto.Add(saveToFileDto);
+                        }
                 }
             }
             catch (Exception ex)
@@ -165,42 +191,9 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public async Task ProcessAllCoordinates(bool createFiles, bool createDB, string coordinatesFilePath)
+        private async IAsyncEnumerable<string> ReadCoordinatesAsync(string filePath)
         {
-            try
-            {
-                var coordinates = ReadCoordinates(coordinatesFilePath);
-                foreach (var coordinate in coordinates)
-                {
-                    string[] parts = coordinate.Split('-');
-                    if (parts.Length == 2 && (parts[0] != _latitude || parts[1] != _longitude))  // Skip the original coordinates
-                    {
-                        HistoricWeatherDataDto? modifiedData = ModifyData(_originalWeatherData);
-                        if (modifiedData != null)
-                        {
-                            SaveToFileDto saveToFileDto = new SaveToFileDto
-                            {
-                                HistoricWeatherData = modifiedData,
-                                Latitude = parts[0],
-                                Longitude = parts[1]
-                            };
-                            _saveToFileDtoList.Add(saveToFileDto);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Ready for logging
-            }
-        }
-
-
-
-
-        private IEnumerable<string> ReadCoordinates(string filePath)
-        {
-            var coordinatesText = File.ReadAllLines(filePath);
+            var coordinatesText = await File.ReadAllLinesAsync(filePath);
             if (coordinatesText.Length == 0)
             {
                 yield break;
@@ -218,6 +211,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }
             }
         }
+
 
 
 
@@ -276,7 +270,7 @@ namespace DVF_API.Services.ServiceImplementation
                     return;
                 }
 
-                await _historicWeatherDataRepository.InsertCitiesToDB(cityModels);
+                await _historicWeatherDataRepository.SaveCitiesToDBAsync(cityModels);
             }
             catch (Exception ex)
             {
@@ -307,9 +301,33 @@ namespace DVF_API.Services.ServiceImplementation
                     location.Latitude = FormatCoordinate(location.Latitude);
                     location.Longitude = FormatCoordinate(location.Longitude);
                 }
-                await _historicWeatherDataRepository.InsertLocationsToDB(locationModels);
+                await _historicWeatherDataRepository.SaveLocationsToDBAsync(locationModels);
             }
             catch (Exception)
+            {
+                //ready for logging
+            }
+        }
+
+
+
+
+        private async Task CreateCoordinatesRepository()
+        {
+            try
+            {
+                string locationsUniqueCoordinatesSelected = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "UniqueCoordinatesSelected.json");
+                string jsonContent = File.ReadAllText(locationsUniqueCoordinatesSelected);
+                List<string>? UniqueCoordinates = JsonSerializer.Deserialize<List<string>>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (UniqueCoordinates == null)
+                {
+                    return;
+                }
+
+                await _historicWeatherDataRepository.SaveCoordinatesToDBAsync(UniqueCoordinates);
+            }
+            catch (Exception ex)
             {
                 //ready for logging
             }

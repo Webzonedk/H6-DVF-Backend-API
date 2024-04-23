@@ -7,5 +7,6 @@ namespace DVF_API.Services.Interfaces
         Task CreateHistoricWeatherDataAsync(bool createFiles, bool createDB);
         Task CreateCities();
         Task CreateLocations();
+        Task CreateCoordinates();
     }
 }

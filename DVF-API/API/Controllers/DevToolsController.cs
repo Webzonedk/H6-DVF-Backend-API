@@ -43,8 +43,18 @@ namespace DVF_API.API.Controllers
         [HttpPost("/CreateLocations")]
         public async Task<IActionResult> CreateLocations()
         {
-            //await _developerService.CreateLocations();
+            await _developerService.CreateLocations();
             return Ok(new { message = "Locations created" });
+        }
+
+
+
+
+        [HttpPost("/CreateCoordinates")]
+        public async Task<IActionResult> CreateCoordinates()
+        {
+            await _developerService.CreateCoordinates();
+            return Ok(new { message = "Coordinates created" });
         }
 
 
