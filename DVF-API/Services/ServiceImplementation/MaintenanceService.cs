@@ -19,10 +19,11 @@ namespace DVF_API.Services.ServiceImplementation
         public void RemoveData(DateTime deleteDataDto) 
         { 
             //Method to delete data
+            _databaseRepository.DeleteOldData(deleteDataDto);
         }
         public void RestoreData()
         {
-            
+            _databaseRepository.RestoreAllData();
         }
     }
 }

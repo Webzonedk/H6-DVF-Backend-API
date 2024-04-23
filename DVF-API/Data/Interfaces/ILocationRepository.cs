@@ -2,8 +2,8 @@
 {
     public interface ILocationRepository
     {
-        List<string> FetchMatchingAddresses(string partialAddress);
-        int FetchLocationCount(string partialAddress);
-        List<string> FetchLoactionCoordinates(int fromIndex, int toIndex);
+        Task<List<string>> FetchMatchingAddresses(string partialAddress);
+        Task<int> FetchLocationCount();
+        Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex);
     }
 }
