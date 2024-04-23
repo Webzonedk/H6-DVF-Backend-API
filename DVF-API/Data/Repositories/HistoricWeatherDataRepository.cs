@@ -1,11 +1,14 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Data.Models;
+using DVF_API.Domain.Interfaces;
+using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using System.Threading.Tasks.Dataflow;
 
 namespace DVF_API.Data.Repositories
 {
@@ -13,27 +16,32 @@ namespace DVF_API.Data.Repositories
     {
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
+        private readonly IUtilityManager _utilityManager;
 
-        public HistoricWeatherDataRepository(IConfiguration configuration)
+        #region Constructors
+        public HistoricWeatherDataRepository(IConfiguration configuration, IUtilityManager utilityManager)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
+            _utilityManager = utilityManager;
 
         }
+        #endregion
+
+    
 
 
 
-
-        public async Task SaveDataToFileAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        public async Task SaveDataToFileAsync(List<SaveToFileDto> _saveToFileDtoList, string baseFolder)
         {
-            await SaveDataAsBinaryAsync(data, latitude, longitude, baseFolder);
+            await SaveDataAsBinaryAsync(_saveToFileDtoList, baseFolder);
         }
 
 
 
 
 
-        public async Task SaveDataToDatabaseAsync(HistoricWeatherDataDto data, string latitude, string longitude)
+        public async Task SaveDataToDatabaseAsync(List<SaveToFileDto> _saveToFileDtoList)
         {
             //Debug.WriteLine("Saving data to database...");
 
@@ -122,75 +130,33 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryAsync_old(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        public async Task SaveDataAsBinaryAsync(List<SaveToFileDto> saveToFileDtoList, string baseFolder)
         {
-            var groupedData = data.Hourly.Time
-                                    .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
-                                    .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-                                    .ToDictionary(g => g.Key, g => g.ToList());
-
-            foreach (var entry in groupedData)
+            int maxDegreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism();
+            var options = new ExecutionDataflowBlockOptions
             {
-                string dateKey = entry.Key;
-                DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
+                MaxDegreeOfParallelism = maxDegreeOfParallelism
+            };
 
-                if (!Directory.Exists(yearFolder))
-                    Directory.CreateDirectory(yearFolder);
+            var block = new ActionBlock<SaveToFileDto>(async dto =>
+            {
+                await SaveSingleDtoAsync(dto, baseFolder);
+            }, options);
 
-                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
+            saveToFileDtoList.ForEach(dto => block.Post(dto));
 
-                using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
-                {
-                    foreach (var v in entry.Value)
-                    {
-                        // Convert each time point to float and write directly as binary
-                        await Task.Run(() =>
-                        {
-                            binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
-                            binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
-                            binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
-                            binWriter.Write(data.Hourly.Rain[v.Index]);
-                            binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
-                            binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
-                            binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
-                            binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
-                        });
-                    }
-                }
-            }
+            block.Complete();
+            await block.Completion;
         }
 
 
 
-        //private async Task SaveDataAsBinaryAsync(List<HistoricWeatherDataDto> allData, string baseFolder)
-        //{
-        //    await Task.Run(() =>
-        //    {
-        //        Parallel.ForEach(allData, async (data) =>
-        //        {
-        //            string latitude = data.Latitude;
-        //            string longitude = data.Longitude;
-        //            var yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", DateTime.Now.ToString("yyyy"));
-        //            if (!Directory.Exists(yearFolder))
-        //                Directory.CreateDirectory(yearFolder);
 
-        //            string filePath = Path.Combine(yearFolder, $"{DateTime.Now:MMdd}.bin");
-        //            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-        //            using (var binWriter = new BinaryWriter(fileStream))
-        //            {
-        //                // Write your data here
-        //                await fileStream.FlushAsync();
-        //            }
-        //        });
-        //    });
-        //}
-
-
-
-
-        private async Task SaveDataAsBinaryAsync(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
+        private async Task SaveSingleDtoAsync(SaveToFileDto saveToFileDto, string baseFolder)
         {
+            var data = saveToFileDto.HistoricWeatherData;
+            var latitude = saveToFileDto.Latitude;
+            var longitude = saveToFileDto.Longitude;
             var timeStamps = data.Hourly.Time.Select(DateTime.Parse).ToList();
             var groupedData = timeStamps
                                 .Select((time, index) => new { Time = time, Index = index })
@@ -221,11 +187,11 @@ namespace DVF_API.Data.Repositories
                         binWriter.Write(data.Hourly.Wind_Gusts_10m[index]);
                         binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[index]);
                     }
-                    // Brug FileStream's FlushAsync metode i stedet for BinaryWriter
                     await fileStream.FlushAsync();
                 }
             }
         }
+
 
 
 
@@ -234,44 +200,6 @@ namespace DVF_API.Data.Repositories
             DateTime parsedDateTime = DateTime.Parse(time);
             return float.Parse(parsedDateTime.ToString("HHmm"));
         }
-
-
-
-        //private void SaveDataAsBinary(HistoricWeatherDataDto data, string latitude, string longitude, string baseFolder)
-        //{
-        //    var groupedData = data.Hourly.Time
-        //                        .Select((time, index) => new { Time = DateTime.Parse(time), Index = index })
-        //                        .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-        //                        .ToDictionary(g => g.Key, g => g.ToList());
-
-        //    foreach (var entry in groupedData)
-        //    {
-        //        string dateKey = entry.Key;
-        //        DateTime entryDate = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-        //        string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
-
-        //        if (!Directory.Exists(yearFolder))
-        //            Directory.CreateDirectory(yearFolder);
-
-        //        string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");  // End with .bin to indicate binary file
-
-        //        using (var binWriter = new BinaryWriter(File.Open(filePath, FileMode.Create)))
-        //        {
-        //            foreach (var v in entry.Value)
-        //            {
-        //                // Convert each time point to float and write directly as binary
-        //                binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[v.Index]));
-        //                binWriter.Write(data.Hourly.Temperature_2m[v.Index]);
-        //                binWriter.Write(data.Hourly.Relative_Humidity_2m[v.Index]);
-        //                binWriter.Write(data.Hourly.Rain[v.Index]);
-        //                binWriter.Write(data.Hourly.Wind_Speed_10m[v.Index]);
-        //                binWriter.Write(data.Hourly.Wind_Direction_10m[v.Index]);
-        //                binWriter.Write(data.Hourly.Wind_Gusts_10m[v.Index]);
-        //                binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[v.Index]);
-        //            }
-        //        }
-        //    }
-        //}
 
 
     }

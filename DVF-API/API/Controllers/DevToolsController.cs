@@ -1,6 +1,7 @@
 ﻿using DVF_API.Services;
 using DVF_API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http;
 
 namespace DVF_API.API.Controllers
 {
@@ -12,7 +13,11 @@ namespace DVF_API.API.Controllers
 
 
         #region fields
+        private readonly HttpClient _httpClient = new HttpClient();
         private readonly IDeveloperService _developerService;
+        private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
+        private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
+
         #endregion
 
         #region Constructor
@@ -22,13 +27,33 @@ namespace DVF_API.API.Controllers
         }
         #endregion
 
-        private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
+
+
+
+        [HttpPost("/CreateCities")]
+        public async Task<IActionResult> CreateCities()
+        {
+            //await _developerService.CreateCities();
+            return Ok(new { message = "Cities created" });
+        }
+
+
+
+
+        [HttpPost("/CreateLocations")]
+        public async Task<IActionResult> CreateLocations()
+        {
+            //await _developerService.CreateLocations();
+            return Ok(new { message = "Locations created" });
+        }
+
+
+
 
         [HttpPost("/CreateHistoricWeatherData")]
         public async Task<IActionResult> CreateHistoricWeatherData([FromQuery] bool createFiles, bool createDB, [FromHeader(Name = "X-Password")] string password)
         {
-            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-            const string hardcodedPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
 
             if (_loginAttempts.ContainsKey(clientIp))
             {
@@ -39,7 +64,7 @@ namespace DVF_API.API.Controllers
                 }
             }
 
-            if (password != hardcodedPassword)
+            if (password != VerySecretPassword)
             {
                 if (_loginAttempts.ContainsKey(clientIp))
                 {
@@ -53,39 +78,36 @@ namespace DVF_API.API.Controllers
             }
 
             _loginAttempts.Remove(clientIp);
-            _developerService.CreateHistoricWeatherDataAsync(createFiles, createDB);
+            await _developerService.CreateHistoricWeatherDataAsync(createFiles, createDB);
             return Ok(new { message = "Historic weather data created" });
         }
+
 
 
 
         [HttpPost("/StartSimulator")]
         public async Task<IActionResult> StartSimulator()
         {
-          _developerService.StartSimulator();
+            var response = await _httpClient.GetAsync("https://iot-api.weblion.dk/StartSimulator");
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest(new { message = $"Failed to start simulator: {response.StatusCode}" });
+            }
             return Ok(new { message = "Simulator started" });
         }
+
+
+
 
         [HttpPost("/StopSimulator")]
         public async Task<IActionResult> StopSimulator()
         {
-          _developerService.StopSimulator();
+            var response = await _httpClient.GetAsync("https://iot-api.weblion.dk/StopSimulator");
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest(new { message = $"Failed to stop simulator: {response.StatusCode}" });
+            }
             return Ok(new { message = "Simulator stopped" });
         }
-
-        [HttpPost("/CreateCities")]
-        public async Task<IActionResult> CreateCities()
-        {
-            //_developerService.CreateCities();
-            return Ok(new { message = "Cities created" });
-        }
-
-        [HttpPost("/CreateLocations")]
-        public async Task<IActionResult> CreateLocations()
-        {
-            //_developerService.CreateLocations();
-            return Ok(new { message = "Locations created" });
-        }
-
     }
 }
