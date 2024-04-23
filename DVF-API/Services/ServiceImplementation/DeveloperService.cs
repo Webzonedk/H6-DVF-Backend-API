@@ -119,14 +119,6 @@ namespace DVF_API.Services.ServiceImplementation
                         Longitude = formatedLongitude
                     };
                     _saveToFileDtoList.Add(saveToFileDto);
-                    //if (createFiles)
-                    //{
-                    //    await _historicWeatherDataRepository.SaveDataToFileAsync(_originalWeatherData, formatedLatitude, formatedLongitude, baseFolder);
-                    //}
-                    //if (createDB)
-                    //{
-                    //    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(_originalWeatherData, formatedLatitude, formatedLongitude);
-                    //}
                 }
             }
             catch (Exception ex)
