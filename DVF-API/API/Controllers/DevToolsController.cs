@@ -31,7 +31,7 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/CreateCities")]
-        public async Task<IActionResult> CreateCities()
+        public async Task<IActionResult> CreateCities([FromHeader(Name = "X-Password")] string password)
         {
             //await _developerService.CreateCities();
             return Ok(new { message = "Cities created" });
@@ -41,7 +41,7 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/CreateLocations")]
-        public async Task<IActionResult> CreateLocations()
+        public async Task<IActionResult> CreateLocations([FromHeader(Name = "X-Password")] string password)
         {
             await _developerService.CreateLocations();
             return Ok(new { message = "Locations created" });
@@ -51,7 +51,7 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/CreateCoordinates")]
-        public async Task<IActionResult> CreateCoordinates()
+        public async Task<IActionResult> CreateCoordinates([FromHeader(Name = "X-Password")] string password)
         {
             await _developerService.CreateCoordinates();
             return Ok(new { message = "Coordinates created" });
@@ -118,6 +118,12 @@ namespace DVF_API.API.Controllers
                 return BadRequest(new { message = $"Failed to stop simulator: {response.StatusCode}" });
             }
             return Ok(new { message = "Simulator stopped" });
+        }
+
+
+        private void BruteforceProtector()
+        {
+
         }
     }
 }
