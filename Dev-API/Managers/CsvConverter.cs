@@ -1,9 +1,5 @@
 ﻿using Dev_API.Models;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
 using System.Text;
 using System.Text.Json;
 
@@ -23,11 +19,11 @@ namespace Dev_API.Managers
         /// converts these objects into a JSON formatted string, and writes this string to a new JSON file.
         /// This method is responsible for orchestrating the reading, processing, and saving of address data.
         /// </summary>
-        private const int MaxRandomAddresses = 250000;
+        private const int MaxRandomAddresses = 100000;
 
         public void ReadAndConvertCsvFile()
         {
-            string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+            string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Sources");
             string csvFilePath = Path.Combine(dataFolderPath, "addresses.csv");
             string jsonAllFilePath = Path.Combine(dataFolderPath, "locationsAll.json");
             string jsonSelectedFilePath = Path.Combine(dataFolderPath, "locationsSelected.json");
@@ -44,8 +40,8 @@ namespace Dev_API.Managers
             var selectedAddresses = SelectRandomAddresses(addresses);
             SaveDataAsJson(selectedAddresses, jsonSelectedFilePath);
 
-            ExtractAndSaveUniqueCoordinates(selectedAddresses, "uniqueCoordinatesSelected.json");
-            ExtractAndSaveUniqueCoordinates(addresses, "uniqueCoordinatesAll.json");
+            ExtractAndSaveUniqueCoordinates(selectedAddresses, "UniqueCoordinatesSelected.json");
+            ExtractAndSaveUniqueCoordinates(addresses, "UniqueCoordinatesAll.json");
         }
 
 
@@ -61,12 +57,16 @@ namespace Dev_API.Managers
 
         private void ExtractAndSaveUniqueCoordinates(IEnumerable<Address> addresses, string fileName)
         {
-            string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+            string dataFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Sources");
             string jsonOutputPath = Path.Combine(dataFolderPath, fileName);
 
             var uniqueCoordinates = addresses.Select(a => FormatCoordinate(a.Latitude) + "-" + FormatCoordinate(a.Longitude)).ToHashSet();
             SaveDataAsJson(uniqueCoordinates, jsonOutputPath);
         }
+
+
+
+
 
         private string FormatCoordinate(string coordinate)
         {

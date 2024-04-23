@@ -1,6 +1,6 @@
 ﻿namespace DVF_API.SharedLib.Dtos
 {
-    public class SaveToFileDto
+    public class SaveToStorageDto
     {
         public HistoricWeatherDataDto HistoricWeatherData { get; set; }
         public string Latitude { get; set; }
