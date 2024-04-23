@@ -32,7 +32,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToFileAsync(List<SaveToFileDto> _saveToFileDtoList, string baseFolder)
+        public async Task SaveDataToFileAsync(List<SaveToStorageDto> _saveToFileDtoList, string baseFolder)
         {
             await SaveDataAsBinaryAsync(_saveToFileDtoList, baseFolder);
         }
@@ -41,7 +41,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToDatabaseAsync(List<SaveToFileDto> _saveToFileDtoList)
+        public async Task SaveDataToDatabaseAsync(List<SaveToStorageDto> _saveToFileDtoList)
         {
             //Debug.WriteLine("Saving data to database...");
 
@@ -130,7 +130,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataAsBinaryAsync(List<SaveToFileDto> saveToFileDtoList, string baseFolder)
+        public async Task SaveDataAsBinaryAsync(List<SaveToStorageDto> saveToFileDtoList, string baseFolder)
         {
             int maxDegreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism();
             var options = new ExecutionDataflowBlockOptions
@@ -138,7 +138,7 @@ namespace DVF_API.Data.Repositories
                 MaxDegreeOfParallelism = maxDegreeOfParallelism
             };
 
-            var block = new ActionBlock<SaveToFileDto>(async dto =>
+            var block = new ActionBlock<SaveToStorageDto>(async dto =>
             {
                 await SaveSingleDtoAsync(dto, baseFolder);
             }, options);
@@ -152,7 +152,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveSingleDtoAsync(SaveToFileDto saveToFileDto, string baseFolder)
+        private async Task SaveSingleDtoAsync(SaveToStorageDto saveToFileDto, string baseFolder)
         {
             var data = saveToFileDto.HistoricWeatherData;
             var latitude = saveToFileDto.Latitude;

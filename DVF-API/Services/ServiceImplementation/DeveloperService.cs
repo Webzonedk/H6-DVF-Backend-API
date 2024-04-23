@@ -26,7 +26,7 @@ namespace DVF_API.Services.ServiceImplementation
         private DateTime _startDate = new DateTime(2024, 03, 30);
         private DateTime _endDate = new DateTime(2024, 04, 01);
         private HistoricWeatherDataDto? _originalWeatherData;
-        private List<SaveToFileDto> _saveToFileDtoList = new List<SaveToFileDto>();
+        private List<SaveToStorageDto> _saveToFileDtoList = new List<SaveToStorageDto>();
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
@@ -112,7 +112,7 @@ namespace DVF_API.Services.ServiceImplementation
                 {
                     var formatedLatitude = FormatCoordinate(latitude);
                     var formatedLongitude = FormatCoordinate(longitude);
-                    SaveToFileDto saveToFileDto = new SaveToFileDto
+                    SaveToStorageDto saveToFileDto = new SaveToStorageDto
                     {
                         HistoricWeatherData = _originalWeatherData,
                         Latitude = formatedLatitude,
@@ -178,7 +178,7 @@ namespace DVF_API.Services.ServiceImplementation
                         HistoricWeatherDataDto? modifiedData = ModifyData(_originalWeatherData);
                         if (modifiedData != null)
                         {
-                            SaveToFileDto saveToFileDto = new SaveToFileDto
+                            SaveToStorageDto saveToFileDto = new SaveToStorageDto
                             {
                                 HistoricWeatherData = modifiedData,
                                 Latitude = parts[0],

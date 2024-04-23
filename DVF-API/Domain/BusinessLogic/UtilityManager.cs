@@ -5,6 +5,9 @@ using System;
 using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Text.Json;
+using System.Text;
 
 namespace DVF_API.Domain.BusinessLogic
 {
@@ -111,7 +114,10 @@ namespace DVF_API.Domain.BusinessLogic
         public int GetModelSize(object obj)
         {
             // Calculate memory size using Marshal.SizeOf
-            return Marshal.SizeOf(obj);
+            //return Marshal.SizeOf(obj);
+
+            string jsonString = JsonSerializer.Serialize(obj);
+            return Encoding.UTF8.GetBytes(jsonString).Length;
         }
 
         public int GetModelSize<T>(List<T> list)

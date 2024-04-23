@@ -4,7 +4,7 @@ using DVF_API.SharedLib.Dtos;
 
 namespace DVF_API.Services.ServiceImplementation
 {
-    public class DataService: IDataService
+    public class DataService : IDataService
     {
 
         private readonly IDatabaseRepository _databaseRepository;
@@ -15,24 +15,23 @@ namespace DVF_API.Services.ServiceImplementation
             _databaseRepository = databaseRepository;
             _locationRepository = locationRepository;
         }
-        public async Task< List<string>> GetAddressesFromDBMatchingInputs(string partialAddress)
+        public async Task<List<string>> GetAddressesFromDBMatchingInputs(string partialAddress)
         {
             return await _locationRepository.FetchMatchingAddresses(partialAddress);
         }
 
-        public Task< int> CountLocations()
+        public Task<int> CountLocations()
         {
-           return  _locationRepository.FetchLocationCount();
+            return _locationRepository.FetchLocationCount();
         }
 
-        public async Task< List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
         }
 
-        public async Task< MetaDataDto> GetWeatherDataService(SearchDto searchDto)
+        public async Task<MetaDataDto> GetWeatherDataService(SearchDto searchDto)
         {
-
             return await _databaseRepository.FetchWeatherData(searchDto);
         }
     }

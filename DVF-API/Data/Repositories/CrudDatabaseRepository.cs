@@ -56,12 +56,13 @@ namespace DVF_API.Data.Repositories
 
             await using SqlCommand command = new SqlCommand(query, connection);
 
-            command.Parameters.Add("@FromDate ", SqlDbType.VarChar, 255);
-            command.Parameters.Add("@ToDate", SqlDbType.VarChar, 255);
-            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
-            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
-            command.Parameters["FromDate"].Value = searchDto.FromDate.ToString();
-            command.Parameters["@ToDate"].Value = searchDto.ToDate.ToString();
+            command.Parameters.AddWithValue("@FromDate ", searchDto.FromDate);
+            command.Parameters.AddWithValue("@ToDate", searchDto.ToDate);
+           
+            command.Parameters.Add("@Latitude", SqlDbType.DateTime, 255);
+            command.Parameters.Add("@Longitude", SqlDbType.DateTime, 255);
+            //command.Parameters["@FromDate"].Value = searchDto.FromDate;
+            //command.Parameters["@ToDate"].Value = searchDto.ToDate;
 
             // Get CPU usage before executing the code
             (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
@@ -259,10 +260,11 @@ namespace DVF_API.Data.Repositories
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode,Cities.CityName FROM Locations " +
-                "JOIN Cities ON Locations.CityId = Cities.CityId" +
-                "WHERE(Locations.StreetName + ' ' + Locations.StreetNumber LIKE @searchCriteria " +
-                "OR Cities.PostalCode LIKE @searchCriteria OR Cities.CityName LIKE @searchCriteria)";
+            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName FROM Locations" +
+               " JOIN Cities ON Locations.CityId = Cities.CityId" +
+               " WHERE (Locations.StreetName + ' ' + Locations.StreetNumber LIKE @searchCriteria" +
+               " OR Cities.PostalCode LIKE @searchCriteria OR Cities.CityName LIKE @searchCriteria)";
+
 
             await using SqlCommand command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@searchCriteria", partialAddress);
