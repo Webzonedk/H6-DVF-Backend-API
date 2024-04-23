@@ -121,9 +121,31 @@ namespace DVF_API.API.Controllers
         }
 
 
-        private void BruteforceProtector()
+        private void BruteforceProtector(string password)
         {
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
 
+            if (_loginAttempts.ContainsKey(clientIp))
+            {
+                var (lastAttempt, attemptCount) = _loginAttempts[clientIp];
+                if (DateTime.UtcNow - lastAttempt < TimeSpan.FromMinutes(5) && attemptCount >= 5)
+                {
+                    return StatusCode(429, new { message = "Too many failed attempts. Please try again later." });
+                }
+            }
+
+            if (password != VerySecretPassword)
+            {
+                if (_loginAttempts.ContainsKey(clientIp))
+                {
+                    _loginAttempts[clientIp] = (DateTime.UtcNow, _loginAttempts[clientIp].attemptCount + 1);
+                }
+                else
+                {
+                    _loginAttempts[clientIp] = (DateTime.UtcNow, 1);
+                }
+                return Unauthorized(new { message = "Unauthorized - Incorrect password" });
+            }
         }
     }
 }

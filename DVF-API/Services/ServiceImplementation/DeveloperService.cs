@@ -26,6 +26,9 @@ namespace DVF_API.Services.ServiceImplementation
         private DateTime _startDate = new DateTime(2024, 04, 01);
         private DateTime _endDate = new DateTime(2024, 04, 01);
         private List<SaveToStorageDto> _saveToStorageDto = new List<SaveToStorageDto>();
+        private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
+        private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
+
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
