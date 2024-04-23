@@ -4,34 +4,35 @@ using DVF_API.SharedLib.Dtos;
 
 namespace DVF_API.Services.ServiceImplementation
 {
-    public class DataService: IDataService
+    public class DataService : IDataService
     {
 
         private readonly IDatabaseRepository _databaseRepository;
+        private readonly ILocationRepository _locationRepository;
 
-        public DataService(IDatabaseRepository databaseRepository)
+        public DataService(IDatabaseRepository databaseRepository, ILocationRepository locationRepository)
         {
             _databaseRepository = databaseRepository;
+            _locationRepository = locationRepository;
         }
-        public List<string> GetAddressesFromDBMatchingInputs(string partialAddress)
+        public async Task<List<string>> GetAddressesFromDBMatchingInputs(string partialAddress)
         {
-            return new List<string>();
-        }
-
-        public int CountLocations()
-        {
-            return 0;
+            return await _locationRepository.FetchMatchingAddresses(partialAddress);
         }
 
-        public List<string> GetLocationCoordinates(int fromIndex, int toIndex)
+        public Task<int> CountLocations()
         {
-            return new List<string>();
+            return _locationRepository.FetchLocationCount();
         }
 
-        public MetaDataDto GetWeatherDataService(SearchDto searchDto)
+        public async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
+            return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
+        }
 
-            return _databaseRepository.FetchWeatherData(searchDto);
+        public async Task<MetaDataDto> GetWeatherDataService(SearchDto searchDto)
+        {
+            return await _databaseRepository.FetchWeatherData(searchDto);
         }
     }
 }

@@ -22,28 +22,28 @@ namespace DVF_API.API.Controllers
         #endregion
 
         [HttpPost("/GetAddress")]
-        public IEnumerable<string> GetAddress()
+        public async Task < IEnumerable<string>> GetAddress(string addressInput)
         {
-            return null;
+            return await _dataService.GetAddressesFromDBMatchingInputs(addressInput);
         }
 
         [HttpGet("/GetLocationCount")]
-        public int GetLocationCount()
+        public Task< int> GetLocationCount()
         {
-            return 0;
+          return _dataService.CountLocations();
         }
 
 
         [HttpPost("/GetLocations")]
-        public IEnumerable<string> GetLocations(int fromIndex, int toIndex)
+        public async Task< IEnumerable<string>> GetLocations(int fromIndex, int toIndex)
         {
-            return null;
+            return await _dataService.GetLocationCoordinates(fromIndex, toIndex);
         }
 
         [HttpPost("/GetWeatherData")]
-        public MetaDataDto GetWeatherData(SearchDto seachDto)
+        public async Task< MetaDataDto> GetWeatherData(SearchDto searchDto)
         {
-            return null;
+           return await _dataService.GetWeatherDataService(searchDto);
         }
     }
 }

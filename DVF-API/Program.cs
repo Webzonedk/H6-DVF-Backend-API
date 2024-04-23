@@ -20,6 +20,7 @@ builder.Configuration.GetConnectionString("WeatherDataDb");
 builder.Services.AddTransient<IDatabaseRepository, CrudDatabaseRepository>();
 builder.Services.AddTransient<IFileRepository, CrudFileRepository>();
 builder.Services.AddTransient<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
+builder.Services.AddTransient<ILocationRepository, CrudDatabaseRepository>();
 
 builder.Services.AddTransient<IAddWeatherDataService, AddWeatherDataService>();
 builder.Services.AddTransient<IDataService, DataService>();
