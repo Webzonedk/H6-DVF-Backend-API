@@ -1,5 +1,6 @@
 ﻿using DVF_API.Services;
 using DVF_API.Services.Interfaces;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http;
 
@@ -31,30 +32,67 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/CreateCities")]
-        public async Task<IActionResult> CreateCities()
+        public async Task<IActionResult> CreateCities([FromHeader(Name = "X-Password")] string password)
         {
-            //await _developerService.CreateCities();
-            return Ok(new { message = "Cities created" });
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
+            try
+            {
+                await _developerService.CreateCities(password, clientIp);
+                return Ok(new { message = "Cities created" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(429, new { message = ex.Message });
+            }
         }
 
 
 
 
         [HttpPost("/CreateLocations")]
-        public async Task<IActionResult> CreateLocations()
+        public async Task<IActionResult> CreateLocations([FromHeader(Name = "X-Password")] string password)
         {
-            await _developerService.CreateLocations();
-            return Ok(new { message = "Locations created" });
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
+            try
+            {
+                await _developerService.CreateLocations(password, clientIp);
+                return Ok(new { message = "Locations created" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(429, new { message = ex.Message });
+            }
         }
 
 
 
 
         [HttpPost("/CreateCoordinates")]
-        public async Task<IActionResult> CreateCoordinates()
+        public async Task<IActionResult> CreateCoordinates([FromHeader(Name = "X-Password")] string password)
         {
-            await _developerService.CreateCoordinates();
-            return Ok(new { message = "Coordinates created" });
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
+            try
+            {
+                await _developerService.CreateCoordinates(password, clientIp);
+                return Ok(new { message = "Coordinates created" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(429, new { message = ex.Message });
+            }
+
         }
 
 
@@ -64,32 +102,19 @@ namespace DVF_API.API.Controllers
         public async Task<IActionResult> CreateHistoricWeatherData([FromQuery] bool createFiles, bool createDB, [FromHeader(Name = "X-Password")] string password)
         {
             string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
-
-            if (_loginAttempts.ContainsKey(clientIp))
+            try
             {
-                var (lastAttempt, attemptCount) = _loginAttempts[clientIp];
-                if (DateTime.UtcNow - lastAttempt < TimeSpan.FromMinutes(5) && attemptCount >= 5)
-                {
-                    return StatusCode(429, new { message = "Too many failed attempts. Please try again later." });
-                }
+                await _developerService.CreateHistoricWeatherDataAsync(password, clientIp, createFiles, createDB);
+                return Ok(new { message = "Historic weather data created" });
             }
-
-            if (password != VerySecretPassword)
+            catch (UnauthorizedAccessException ex)
             {
-                if (_loginAttempts.ContainsKey(clientIp))
-                {
-                    _loginAttempts[clientIp] = (DateTime.UtcNow, _loginAttempts[clientIp].attemptCount + 1);
-                }
-                else
-                {
-                    _loginAttempts[clientIp] = (DateTime.UtcNow, 1);
-                }
-                return Unauthorized(new { message = "Unauthorized - Incorrect password" });
+                return Unauthorized(new { message = ex.Message });
             }
-
-            _loginAttempts.Remove(clientIp);
-            await _developerService.CreateHistoricWeatherDataAsync(createFiles, createDB);
-            return Ok(new { message = "Historic weather data created" });
+            catch (Exception ex)
+            {
+                return StatusCode(429, new { message = ex.Message });
+            }
         }
 
 
