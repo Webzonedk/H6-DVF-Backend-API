@@ -19,12 +19,14 @@ namespace DVF_API.Data.Repositories
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
         private readonly IUtilityManager _utilityManager;
+        private readonly ISolarPositionManager _solarPositionManager;
 
-        public CrudDatabaseRepository(IConfiguration configuration, IUtilityManager utilityManager)
+        public CrudDatabaseRepository(IConfiguration configuration, IUtilityManager utilityManager, ISolarPositionManager solarPositionManager)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
             _utilityManager = utilityManager;
+            _solarPositionManager = solarPositionManager;
         }
         //    private readonly IDatabaseRepository _databaseRepository;
         //  private readonly ILocationRepository _locationRepository;
@@ -45,22 +47,27 @@ namespace DVF_API.Data.Repositories
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            string query = "SELECT WD.*" +
-                "FROM WeatherDatas WD" +
-                "JOIN Locations L ON WD.LocationId = L.LocationId" +
-                "JOIN Cities C ON L.CityId = C.CityId" +
-                "WHERE WD.DateAndTime >= @FromDate" +
-                "AND WD.DateAndTime <= @ToDate" +
-                "AND L.Latitude = @Latitude" +
-                "AND L.Longitude = @Longitude";
+            string query = "SELECT WD.*,C.CityName,c.PostalCode,L.StreetName,L.StreetNumber,L.Latitude,L.Longitude" +
+                " FROM WeatherDatas WD" +
+                " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                " JOIN Cities C ON L.CityId = C.CityId" +
+                " WHERE WD.DateAndTime >= @FromDate" +
+                " AND WD.DateAndTime <= @ToDate" +
+                " AND L.Latitude = @Latitude" +
+                " AND L.Longitude = @Longitude" +
+                " AND WD.IsDeleted = 0";
 
             await using SqlCommand command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@FromDate ", searchDto.FromDate);
-            command.Parameters.AddWithValue("@ToDate", searchDto.ToDate);
-           
-            command.Parameters.Add("@Latitude", SqlDbType.DateTime, 255);
-            command.Parameters.Add("@Longitude", SqlDbType.DateTime, 255);
+            CultureInfo culture = new CultureInfo("en-US");
+            string formattedToDate = searchDto.ToDate.ToString("yyyy-MM-dd HH:mm:ss", culture);
+            string formattedFromDate = searchDto.FromDate.ToString("yyyy-MM-dd HH:mm:ss", culture);
+
+            command.Parameters.AddWithValue("@FromDate ", formattedFromDate);
+            command.Parameters.AddWithValue("@ToDate", formattedToDate);
+
+            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
             //command.Parameters["@FromDate"].Value = searchDto.FromDate;
             //command.Parameters["@ToDate"].Value = searchDto.ToDate;
 
@@ -97,14 +104,12 @@ namespace DVF_API.Data.Repositories
                             RelativeHumidity = Convert.ToSingle(result["RelativeHumidity"]),
                             Rain = Convert.ToSingle(result["Rain"]),
                             GlobalTiltedIrRadiance = Convert.ToSingle(result["GlobalTiltedIrRadiance"]),
-                            SunElevationAngle = Convert.ToSingle(result["SunElevationAngle"]),
-                            SunAzimuthAngle = Convert.ToSingle(result["SunAzimuthAngle"]),
                             DateAndTime = Convert.ToDateTime(result["DateAndTime"]),
                         };
-
+                        data = _solarPositionManager.CalculateSunAngles(data);
                         weatherData.Add(data);
-
                     }
+                    result.Close();
 
                 }
                 catch (Exception ex)
@@ -116,14 +121,17 @@ namespace DVF_API.Data.Repositories
             }
 
 
+
+
             // return recorded CPU usage
             var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
 
             //return recorded Memory usage
             var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
-            
-            
-            MetaDataDto metaDatamodel = new MetaDataDto() {
+
+
+            MetaDataDto metaDatamodel = new MetaDataDto()
+            {
                 FetchDataTimer = cpuResult.ElapsedTimeMs,
                 RamUsage = memory,
                 CpuUsage = cpuResult.CpuUsage,
@@ -138,7 +146,7 @@ namespace DVF_API.Data.Repositories
 
             metaDatamodel.DataLoadedMB = dataCollectedInMB;
             return metaDatamodel;
-            
+
         }
 
         public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
@@ -147,9 +155,9 @@ namespace DVF_API.Data.Repositories
             await connection.OpenAsync();
 
             string query = "UPDATE WD SET WD.IsDeleted = 1" +
-                "FROM WeatherDatas WD" +
-                "JOIN Locations L ON WD.LocationId = L.LocationId" +
-                "WHERE WD.DateAndTime < @beforeDate";
+                " FROM WeatherDatas WD" +
+                " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                " WHERE WD.DateAndTime < @beforeDate";
 
             await using SqlCommand command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@beforeDate", deleteWeatherDataBeforeThisDate);
