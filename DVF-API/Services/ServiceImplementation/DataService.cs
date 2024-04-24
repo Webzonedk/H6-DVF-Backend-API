@@ -15,29 +15,46 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly ILocationRepository _locationRepository;
         private readonly ICrudFileRepository _crudFileRepository;
         private readonly IBinaryConversionManager _binaryConversionManager;
+        private readonly ISolarPositionManager _solarPositionManager;
 
-        public DataService(ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository, ICrudFileRepository crudFileRepository, IBinaryConversionManager binaryConversionManager)
+        public DataService(
+            ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository,
+            ICrudFileRepository crudFileRepository, IBinaryConversionManager binaryConversionManager,
+            ISolarPositionManager solarPositionManager)
         {
             _crudDatabaseRepository = crudDatabaseRepository;
             _locationRepository = locationRepository;
             _crudFileRepository = crudFileRepository;
             _binaryConversionManager = binaryConversionManager;
-
+            _solarPositionManager = solarPositionManager;
         }
+
+
+
+
         public async Task<List<string>> GetAddressesFromDBMatchingInputs(string partialAddress)
         {
             return await _locationRepository.FetchMatchingAddresses(partialAddress);
         }
+
+
+
 
         public Task<int> CountLocations()
         {
             return _locationRepository.FetchLocationCount();
         }
 
+
+
+
         public async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
         }
+
+
+
 
         public async Task<MetaDataDto> GetWeatherDataService(SearchDto searchDto)
         {
@@ -54,8 +71,8 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
 
-                List<BinaryDataFromFileDtoTemp> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
-
+                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
+                listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(listOfBinaryDataFromFileDto);
                 for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
                 {
                     string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');
@@ -79,20 +96,15 @@ namespace DVF_API.Services.ServiceImplementation
                         weatherDataDto.DateAndTime = DateTime.ParseExact(string.Concat(listOfBinaryDataFromFileDto[i].YearDate, weatherDataFileDto.Time[j]), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
                         weatherDataDtoList.Add(weatherDataDto);
                     }
-
-
-
                 }
-                return null;
+
+                for (int i = 0; i < weatherDataDtoList.Count; i++)
+                {
+                    weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
+                }
+                metaDataDto.WeatherData = weatherDataDtoList;
             }
             return new MetaDataDto();
-        }
-
-
-
-        private List<MetaDataDto> AddAddressToObjects()
-        {
-            return null;
         }
     }
 }
