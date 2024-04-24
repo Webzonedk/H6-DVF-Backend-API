@@ -31,8 +31,8 @@ namespace DVF_API.Services.ServiceImplementation
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
         private readonly IUtilityManager _utilityManager;
-        private readonly IDatabaseRepository _databaseRepository;
-        private readonly IFileRepository _fileRepository;
+        private readonly ICrudDatabaseRepository _databaseRepository;
+        private readonly ICrudFileRepository _fileRepository;
         #endregion
 
 
@@ -40,7 +40,7 @@ namespace DVF_API.Services.ServiceImplementation
 
         #region Constructors
 
-        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, IDatabaseRepository databaseRepository, IFileRepository fileRepository)
+        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
         {
             _historicWeatherDataRepository = historicWeatherDataRepository;
             _utilityManager = utilityManager;

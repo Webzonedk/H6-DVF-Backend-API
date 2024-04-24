@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace DVF_API.Data.Repositories
 {
-    public class CrudFileRepository: IFileRepository
+    public class CrudFileRepository: ICrudFileRepository
     {
 
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
@@ -16,26 +16,6 @@ namespace DVF_API.Data.Repositories
            
         }
 
-        public MetaDataDto FetchWeatherData(SearchDto searchDto)
-        {
-            return null;
-        }
-
-        public void DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void RestoreAllData()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            throw new NotImplementedException();
-        }
-
 
 
 
@@ -44,7 +24,7 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public List<byte[]> FetchWeatherData(SearchDto search)
+        public async Task<List<byte[]>> FetchWeatherDataAsync(SearchDto search)
         {
             List<byte[]> rawDataFiles = new List<byte[]>();
             foreach (string coordinate in search.Coordinates)
@@ -55,11 +35,12 @@ namespace DVF_API.Data.Repositories
                     string yearPath = Path.Combine(path, year.ToString());
                     if (Directory.Exists(yearPath))
                     {
-                        foreach (string file in Directory.GetFiles(yearPath, "*.bin", SearchOption.TopDirectoryOnly))
+                        var files = Directory.GetFiles(yearPath, "*.bin", SearchOption.TopDirectoryOnly);
+                        foreach (string file in files)
                         {
                             if (IsFileDateWithinRange(file, search.FromDate, search.ToDate))
                             {
-                                byte[] rawData = File.ReadAllBytes(file);
+                                byte[] rawData = await File.ReadAllBytesAsync(file);
                                 rawDataFiles.Add(rawData);
                             }
                         }
@@ -68,6 +49,32 @@ namespace DVF_API.Data.Repositories
             }
             return rawDataFiles;
         }
+
+
+
+
+
+        public void DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
+        {
+            throw new NotImplementedException();
+        }
+
+
+
+
+        public void RestoreAllData()
+        {
+            throw new NotImplementedException();
+        }
+
+
+
+
+        public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
+        {
+            throw new NotImplementedException();
+        }
+
 
 
 

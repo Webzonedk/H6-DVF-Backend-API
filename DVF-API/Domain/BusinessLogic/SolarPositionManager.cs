@@ -46,8 +46,8 @@ namespace DVF_API.Domain.BusinessLogic
         private WeatherDataDto CalculateSunPosition(WeatherDataDto weathterDataDto)
         {
            // double latitude = Math.Round(Convert.ToDouble(weathterDataDto.Latitude), 8, MidpointRounding.AwayFromZero);
-           string formattedLat = weathterDataDto.Latitude.Replace(".",",");
-            string formattedLong = weathterDataDto.Longitude.Replace(".", ",");
+           string formattedLat = weathterDataDto.Latitude!.Replace(".",",");
+            string formattedLong = weathterDataDto.Longitude!.Replace(".", ",");
             //double latitude = double.Parse(formattedLat);
             //double longitude = double.Parse(formattedLong);
             double latitude = Math.Round(double.Parse(formattedLat), 8, MidpointRounding.AwayFromZero);

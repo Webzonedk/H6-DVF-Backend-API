@@ -6,9 +6,9 @@ namespace DVF_API.Services.ServiceImplementation
     public class MaintenanceService: IMaintenanceService
     {
 
-        private readonly IDatabaseRepository _databaseRepository;
-        private readonly IFileRepository _fileRepository;
-       public MaintenanceService(IDatabaseRepository databaseRepository, IFileRepository fileRepository)
+        private readonly ICrudDatabaseRepository _databaseRepository;
+        private readonly ICrudFileRepository _fileRepository;
+       public MaintenanceService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
         {
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;

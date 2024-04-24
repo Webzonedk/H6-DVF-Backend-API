@@ -14,7 +14,7 @@ using DVF_API.Domain.BusinessLogic;
 
 namespace DVF_API.Data.Repositories
 {
-    public class CrudDatabaseRepository : IDatabaseRepository, ILocationRepository
+    public class CrudDatabaseRepository : ICrudDatabaseRepository, ILocationRepository
     {
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
@@ -42,7 +42,7 @@ namespace DVF_API.Data.Repositories
         //  }
 
 
-        public async Task<MetaDataDto> FetchWeatherData(SearchDto searchDto)
+        public async Task<MetaDataDto> FetchWeatherDataAsync(SearchDto searchDto)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();

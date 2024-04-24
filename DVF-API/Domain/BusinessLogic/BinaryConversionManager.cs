@@ -16,6 +16,8 @@ namespace DVF_API.Domain.BusinessLogic
         }
 
 
+
+
         /// <summary>
         /// Converts a byte array of binary data to a WeatherDataFileDto object.
         /// </summary>
@@ -53,6 +55,5 @@ namespace DVF_API.Domain.BusinessLogic
                 return data;
             }
         }
-
     }
 }

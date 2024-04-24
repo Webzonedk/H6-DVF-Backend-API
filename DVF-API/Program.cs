@@ -17,8 +17,8 @@ builder.Services.AddSwaggerGen();
 builder.Configuration.GetConnectionString("WeatherDataDb");
 
 //Dependency injections
-builder.Services.AddTransient<IDatabaseRepository, CrudDatabaseRepository>();
-builder.Services.AddTransient<IFileRepository, CrudFileRepository>();
+builder.Services.AddTransient<ICrudDatabaseRepository, CrudDatabaseRepository>();
+builder.Services.AddTransient<ICrudFileRepository, CrudFileRepository>();
 builder.Services.AddTransient<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
 builder.Services.AddTransient<ILocationRepository, CrudDatabaseRepository>();
 
