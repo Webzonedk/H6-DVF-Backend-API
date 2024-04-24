@@ -1,7 +1,10 @@
-﻿using DVF_API.Data.Interfaces;
+﻿using CoordinateSharp;
+using DVF_API.Data.Interfaces;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using Microsoft.AspNetCore.Http;
+using System.Globalization;
 
 namespace DVF_API.Services.ServiceImplementation
 {
@@ -49,18 +52,40 @@ namespace DVF_API.Services.ServiceImplementation
             }
             if (!searchDto.ToggleDB)
             {
-                List<WeatherDataFileDto> weatherDataFileDtoList = new List<WeatherDataFileDto>();
+                List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
 
-                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
+                List<BinaryDataFromFileDtoTemp> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
 
                 for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
                 {
+                    string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');
+
+
                     WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfBinaryDataFromFileDto[i].BinaryWeatherData);
-                    weatherDataFileDtoList.Add(weatherDataFileDto);
+
+                    for (int j = 0; j < weatherDataFileDto.Time.Length; j++)
+                    {
+                        WeatherDataDto weatherDataDto = new WeatherDataDto();
+                        weatherDataDto.Address = listOfBinaryDataFromFileDto[i].Address;
+                        weatherDataDto.Latitude = coordinateParts[0];
+                        weatherDataDto.Longitude = coordinateParts[1];
+                        weatherDataDto.TemperatureC = weatherDataFileDto.Temperature_2m[j];
+                        weatherDataDto.RelativeHumidity = weatherDataFileDto.Relative_Humidity_2m[j];
+                        weatherDataDto.Rain = weatherDataFileDto.Rain[j];
+                        weatherDataDto.WindSpeed = weatherDataFileDto.Wind_Speed_10m[j];
+                        weatherDataDto.WindDirection = weatherDataFileDto.Wind_Direction_10m[j];
+                        weatherDataDto.WindGust = weatherDataFileDto.Wind_Gusts_10m[j];
+                        weatherDataDto.GlobalTiltedIrRadiance = weatherDataFileDto.Global_Tilted_Irradiance_Instant[j];
+                        weatherDataDto.DateAndTime = DateTime.ParseExact(string.Concat(listOfBinaryDataFromFileDto[i].YearDate, weatherDataFileDto.Time[j]), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                        weatherDataDtoList.Add(weatherDataDto);
+                    }
+
+
+
                 }
                 return null;
             }
-                return new MetaDataDto();
+            return new MetaDataDto();
         }
 
 

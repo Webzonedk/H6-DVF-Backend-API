@@ -24,9 +24,9 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchWeatherDataAsync(SearchDto search)
+        public async Task<List<BinaryDataFromFileDtoTemp>> FetchWeatherDataAsync(SearchDto search)
         {
-            List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+            List<BinaryDataFromFileDtoTemp> binaryDataFromFileDtos = new List<BinaryDataFromFileDtoTemp>();
 
             foreach (string coordinate in search.Coordinates)
             {
@@ -43,7 +43,7 @@ namespace DVF_API.Data.Repositories
                             {
                                 string yearDateString = string.Concat(year, Path.GetFileNameWithoutExtension(file));
                                 byte[] rawData = await File.ReadAllBytesAsync(file);
-                                BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto
+                                BinaryDataFromFileDtoTemp binaryDataFromFileDto = new BinaryDataFromFileDtoTemp
                                 {
                                     Coordinates = coordinate,
                                     YearDate = yearDateString,
