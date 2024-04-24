@@ -38,23 +38,36 @@ namespace DVF_API.Services.ServiceImplementation
 
         public async Task<MetaDataDto> GetWeatherDataService(SearchDto searchDto)
         {
+            MetaDataDto metaDataDto = new MetaDataDto();
             if (searchDto.ToggleDB)
             {
-                return await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
+                // start måling
+                MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
+                return null;
+                // slut måling
+                //calculate sun og tilføj målingsresultater
             }
             if (!searchDto.ToggleDB)
             {
                 List<WeatherDataFileDto> weatherDataFileDtoList = new List<WeatherDataFileDto>();
-                List<byte[]> listOfByteArrays = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
 
-                for (int i = 0; i < listOfByteArrays.Count; i++)
+                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(searchDto);
+
+                for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
                 {
-                    WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfByteArrays[i]);
+                    WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfBinaryDataFromFileDto[i].BinaryWeatherData);
                     weatherDataFileDtoList.Add(weatherDataFileDto);
                 }
                 return null;
             }
                 return new MetaDataDto();
+        }
+
+
+
+        private List<MetaDataDto> AddAddressToObjects()
+        {
+            return null;
         }
     }
 }
