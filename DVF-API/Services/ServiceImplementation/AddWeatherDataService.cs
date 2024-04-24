@@ -7,11 +7,11 @@ namespace DVF_API.Services.ServiceImplementation
     public class AddWeatherDataService : IAddWeatherDataService
     {
         #region fields
-        private readonly IDatabaseRepository _databaseRepository;
-        private readonly IFileRepository _fileRepository;
+        private readonly ICrudDatabaseRepository _databaseRepository;
+        private readonly ICrudFileRepository _fileRepository;
         #endregion
 
-       public AddWeatherDataService(IDatabaseRepository databaseRepository, IFileRepository fileRepository)
+       public AddWeatherDataService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
         {
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;

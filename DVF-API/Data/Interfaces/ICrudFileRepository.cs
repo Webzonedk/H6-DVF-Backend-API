@@ -2,9 +2,9 @@
 
 namespace DVF_API.Data.Interfaces
 {
-    public interface IFileRepository
+    public interface ICrudFileRepository
     {
-        MetaDataDto FetchWeatherData(SearchDto searchDto);
+        Task<List<byte[]>> FetchWeatherDataAsync(SearchDto search);
         void DeleteOldData(DateTime deleteWeatherDataBeforeThisDate);
         void RestoreAllData();
         void InsertData(WeatherDataFromIOTDto weatherDataFromIOT);
