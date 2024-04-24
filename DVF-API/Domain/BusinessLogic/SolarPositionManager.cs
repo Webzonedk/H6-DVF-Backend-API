@@ -1,6 +1,7 @@
 ﻿using CoordinateSharp;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System;
 
 namespace DVF_API.Domain.BusinessLogic
 {
@@ -44,8 +45,13 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>an WeatherDataDto object containing the Sun's elevation and azimuth angles in degrees.</returns>
         private WeatherDataDto CalculateSunPosition(WeatherDataDto weathterDataDto)
         {
-            double latitude = Convert.ToDouble(weathterDataDto.Latitude);
-            double longitude = Convert.ToDouble(weathterDataDto.Longitude);
+           // double latitude = Math.Round(Convert.ToDouble(weathterDataDto.Latitude), 8, MidpointRounding.AwayFromZero);
+           string formattedLat = weathterDataDto.Latitude.Replace(".",",");
+            string formattedLong = weathterDataDto.Longitude.Replace(".", ",");
+            //double latitude = double.Parse(formattedLat);
+            //double longitude = double.Parse(formattedLong);
+            double latitude = Math.Round(double.Parse(formattedLat), 8, MidpointRounding.AwayFromZero);
+            double longitude = Math.Round(double.Parse(formattedLong), 8, MidpointRounding.AwayFromZero);
 
             Coordinate coordinate = new Coordinate(latitude, longitude, weathterDataDto.DateAndTime);
             weathterDataDto.SunElevationAngle = (float)coordinate.CelestialInfo.SunAltitude;
