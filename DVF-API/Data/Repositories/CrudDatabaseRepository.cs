@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using Microsoft.VisualBasic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Domain.BusinessLogic;
+using CoordinateSharp;
 
 
 namespace DVF_API.Data.Repositories
@@ -28,20 +29,15 @@ namespace DVF_API.Data.Repositories
             _utilityManager = utilityManager;
             _solarPositionManager = solarPositionManager;
         }
-        //    private readonly IDatabaseRepository _databaseRepository;
-        //  private readonly ILocationRepository _locationRepository;
-        //  private readonly IConfiguration _configuration;
-        //  private readonly string _connectionString;
+        
 
-        //public CrudDatabaseRepository(IDatabaseRepository databaseRepository, IConfiguration configuration, ILocationRepository locationRepository)
-        //  {
-        //      _locationRepository = locationRepository;
-        //      _databaseRepository = databaseRepository;
-        //      _configuration = configuration;
-        //      _connectionString = _configuration.GetConnectionString("WeatherDataDb");
-        //  }
-
-
+        
+        
+        /// <summary>
+        /// returns all weather data within a time period or daily weather data at a specific location
+        /// </summary>
+        /// <param name="searchDto"></param>
+        /// <returns></returns>
         public async Task<MetaDataDto> FetchWeatherDataAsync(SearchDto searchDto)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -65,11 +61,9 @@ namespace DVF_API.Data.Repositories
 
             command.Parameters.AddWithValue("@FromDate ", formattedFromDate);
             command.Parameters.AddWithValue("@ToDate", formattedToDate);
-
             command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
             command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
-            //command.Parameters["@FromDate"].Value = searchDto.FromDate;
-            //command.Parameters["@ToDate"].Value = searchDto.ToDate;
+
 
             // Get CPU usage before executing the code
             (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
@@ -129,7 +123,6 @@ namespace DVF_API.Data.Repositories
             //return recorded Memory usage
             var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
 
-
             MetaDataDto metaDatamodel = new MetaDataDto()
             {
                 FetchDataTimer = cpuResult.ElapsedTimeMs,
@@ -146,9 +139,15 @@ namespace DVF_API.Data.Repositories
 
             metaDatamodel.DataLoadedMB = dataCollectedInMB;
             return metaDatamodel;
-
         }
 
+
+
+        /// <summary>
+        /// Deletes all weather data until specific date 
+        /// </summary>
+        /// <param name="deleteWeatherDataBeforeThisDate"></param>
+        /// <returns></returns>
         public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -178,6 +177,13 @@ namespace DVF_API.Data.Repositories
 
         }
 
+
+
+
+        /// <summary>
+        /// Restores all weather data in the database
+        /// </summary>
+        /// <returns></returns>
         public async Task RestoreAllData()
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -201,7 +207,16 @@ namespace DVF_API.Data.Repositories
                 // Ready for logging
             }
         }
-
+        
+        
+        
+        
+        /// <summary>
+        /// extracts locations based on indexes
+        /// </summary>
+        /// <param name="fromIndex"></param>
+        /// <param name="toIndex"></param>
+        /// <returns></returns>
         public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -236,6 +251,13 @@ namespace DVF_API.Data.Repositories
             return null;
         }
 
+
+
+
+        /// <summary>
+        /// returns the total number of locations in the database
+        /// </summary>
+        /// <returns></returns>
         public async Task<int> FetchLocationCount()
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -262,7 +284,14 @@ namespace DVF_API.Data.Repositories
             }
 
         }
-
+        
+        
+        
+        /// <summary>
+        /// returns a list of addresses based on partial search
+        /// </summary>
+        /// <param name="partialAddress"></param>
+        /// <returns></returns>
         public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -301,6 +330,14 @@ namespace DVF_API.Data.Repositories
             }
         }
 
+
+        
+        
+        /// <summary>
+        /// adding weather data to database
+        /// </summary>
+        /// <param name="weatherDataFromIOT"></param>
+        /// <returns></returns>
         public async Task InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
         {
             await using SqlConnection connection = new SqlConnection(_connectionString);
@@ -338,5 +375,51 @@ namespace DVF_API.Data.Repositories
             }
         }
 
+        
+        
+        /// <summary>
+        /// adding addresses from latitude and longitude to binary data
+        /// </summary>
+        /// <param name="BinaryData"></param>
+        /// <returns></returns>
+        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        {
+            await using SqlConnection connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
+                " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
+
+
+            await using SqlCommand command = new SqlCommand(query, connection);
+            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+
+            foreach (var data in BinaryData)
+            {
+                string latitude = data.Coordinates.Split('-')[0];
+                string longitude = data.Coordinates.Split("-")[1];
+                command.Parameters["@Latitude"].Value = latitude;
+                command.Parameters["@Longitude"].Value = longitude;
+
+                try
+                {
+                    var result = await command.ExecuteReaderAsync();
+                    while (await result.ReadAsync())
+                    {
+                        data.Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                }
+            }
+
+            return BinaryData;
+        }
     }
 }
