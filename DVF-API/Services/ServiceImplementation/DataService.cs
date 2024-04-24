@@ -1,9 +1,7 @@
-﻿using CoordinateSharp;
-using DVF_API.Data.Interfaces;
+﻿using DVF_API.Data.Interfaces;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
-using Microsoft.AspNetCore.Http;
 using System.Globalization;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -55,7 +53,11 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-
+        /// <summary>
+        /// Get weather data from file or database, adding sun angles to the data. making it ready for the front end.
+        /// </summary>
+        /// <param name="searchDto"></param>
+        /// <returns>Returns a MetaDataDto object containing the weather data and sun angles.</returns>
         public async Task<MetaDataDto> GetWeatherDataService(SearchDto searchDto)
         {
             MetaDataDto metaDataDto = new MetaDataDto();
