@@ -24,8 +24,8 @@ namespace DVF_API.Services.ServiceImplementation
         private string _coordinatesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "UniqueCoordinatesSelected.json");
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
-        private DateTime _startDate = new DateTime(2024, 04, 01);
-        private DateTime _endDate = new DateTime(2024, 04, 01);
+        private DateTime startDate = new DateTime(2024, 04, 01);
+        private DateTime endDate = new DateTime(2024, 04, 01);
         private List<SaveToStorageDto> _saveToStorageDto = new List<SaveToStorageDto>();
 
 
@@ -52,11 +52,11 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public async Task CreateHistoricWeatherDataAsync(string password, string clientIp, bool createFiles, bool createDB)
+        public async Task CreateHistoricWeatherDataAsync(string password, string clientIp, bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
         {
             if (_utilityManager.Authenticate(password, clientIp))
             {
-                await CreateHistoricWeatherData(createFiles, createDB);
+                await CreateHistoricWeatherData(createFiles, createDB, startDate, endDate);
             }
         }
 
@@ -96,11 +96,11 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task CreateHistoricWeatherData(bool createFiles, bool createDB)
+        private async Task CreateHistoricWeatherData(bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
         {
             try
             {
-                await RetreiveProcessWeatherData(_latitude, _longitude, _startDate, _endDate, _coordinatesFilePath);
+                await RetreiveProcessWeatherData(_latitude, _longitude, startDate, endDate, _coordinatesFilePath);
 
                 List<Task> tasks = new List<Task>();
 

@@ -1,5 +1,6 @@
 ﻿using DVF_API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace DVF_API.API.Controllers
 {
@@ -21,7 +22,7 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/DeleteData")]
-        public IActionResult DeleteData([FromBody] DateTime deleteDataBeforeThisDate)
+        public IActionResult DeleteData([FromBody][DataType(DataType.Date)] DateTime deleteDataBeforeThisDate)
         {
             _maintenanceService.RemoveData(deleteDataBeforeThisDate);
             return Ok(new { message = "Data deleted" });
