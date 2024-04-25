@@ -1,7 +1,9 @@
 ﻿using DVF_API.Data.Interfaces;
+using DVF_API.Domain.BusinessLogic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -17,17 +19,19 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly ICrudFileRepository _crudFileRepository;
         private readonly IBinaryConversionManager _binaryConversionManager;
         private readonly ISolarPositionManager _solarPositionManager;
+        private readonly IUtilityManager _utilityManager;
 
         public DataService(
             ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository,
             ICrudFileRepository crudFileRepository, IBinaryConversionManager binaryConversionManager,
-            ISolarPositionManager solarPositionManager)
+            ISolarPositionManager solarPositionManager, IUtilityManager utilityManager)
         {
             _crudDatabaseRepository = crudDatabaseRepository;
             _locationRepository = locationRepository;
             _crudFileRepository = crudFileRepository;
             _binaryConversionManager = binaryConversionManager;
             _solarPositionManager = solarPositionManager;
+            _utilityManager = utilityManager;
         }
 
 
@@ -66,11 +70,47 @@ namespace DVF_API.Services.ServiceImplementation
             MetaDataDto metaDataDto = new MetaDataDto();
             if (searchDto.ToggleDB)
             {
-                // start måling
+                // start measuring CPU usage before executing the code
+                (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
+
+                //measure Memory
+                (Process currentProcess, long currentBytes) = _utilityManager.BeginMeasureMemory();
+
+                //get data
                 MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
-                return null;
-                // slut måling
-                //calculate sun og tilføj målingsresultater
+              
+                
+                // return recorded CPU usage
+                var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
+
+                //return recorded Memory usage
+                var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
+
+                if (modelResult != null)
+                {
+                    //calculate sun angles
+                    for (int i = 0; i < modelResult.WeatherData.Count; i++)
+                    {
+                        var Result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[i]);
+                        modelResult.WeatherData[i] = Result;
+                    }
+
+                    //calculate amount of data
+                    int weatherDataInBytes = _utilityManager.GetModelSize(modelResult);
+                    int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult.WeatherData);
+                    int totalBytes = metaDataModelInBytes + weatherDataInBytes;
+                    float dataCollectedInMB = _utilityManager.ConvertBytesToMegabytes(totalBytes);
+
+                    //map measurements to model
+                    modelResult.DataLoadedMB = dataCollectedInMB;
+                    modelResult.FetchDataTimer = cpuResult.ElapsedTimeMs;
+                    modelResult.CpuUsage = cpuResult.CpuUsage;
+                    modelResult.RamUsage = memory;
+
+                    return modelResult;
+                }
+
+
             }
             if (!searchDto.ToggleDB)
             {
@@ -108,8 +148,10 @@ namespace DVF_API.Services.ServiceImplementation
                     weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
                 }
                 metaDataDto.WeatherData = weatherDataDtoList;
+                return metaDataDto;
             }
-            return new MetaDataDto();
+
+            return null;
         }
     }
 }

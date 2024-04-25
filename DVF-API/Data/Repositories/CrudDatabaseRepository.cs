@@ -29,10 +29,10 @@ namespace DVF_API.Data.Repositories
             _utilityManager = utilityManager;
             _solarPositionManager = solarPositionManager;
         }
-        
 
-        
-        
+
+
+
         /// <summary>
         /// returns all weather data within a time period or daily weather data at a specific location
         /// </summary>
@@ -65,12 +65,6 @@ namespace DVF_API.Data.Repositories
             command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
 
 
-            // Get CPU usage before executing the code
-            (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
-
-            //measure Memory
-            (Process currentProcess, long currentBytes) = _utilityManager.BeginMeasureMemory();
-
             List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
             foreach (string coordinates in searchDto.Coordinates)
             {
@@ -100,7 +94,7 @@ namespace DVF_API.Data.Repositories
                             GlobalTiltedIrRadiance = Convert.ToSingle(result["GlobalTiltedIrRadiance"]),
                             DateAndTime = Convert.ToDateTime(result["DateAndTime"]),
                         };
-                        data = _solarPositionManager.CalculateSunAngles(data);
+
                         weatherData.Add(data);
                     }
                     result.Close();
@@ -109,35 +103,17 @@ namespace DVF_API.Data.Repositories
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"An error occurred: {ex.Message}");
-                    stopwatch.Stop();
                     // Ready for logging
                 }
             }
 
 
-
-
-            // return recorded CPU usage
-            var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
-
-            //return recorded Memory usage
-            var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
-
             MetaDataDto metaDatamodel = new MetaDataDto()
             {
-                FetchDataTimer = cpuResult.ElapsedTimeMs,
-                RamUsage = memory,
-                CpuUsage = cpuResult.CpuUsage,
                 WeatherData = weatherData
             };
 
-            //calculate amount of data
-            int weatherDataInBytes = _utilityManager.GetModelSize(weatherData);
-            int metaDataModelInBytes = _utilityManager.GetModelSize(metaDatamodel);
-            int totalBytes = metaDataModelInBytes + weatherDataInBytes;
-            float dataCollectedInMB = _utilityManager.ConvertBytesToMegabytes(totalBytes);
 
-            metaDatamodel.DataLoadedMB = dataCollectedInMB;
             return metaDatamodel;
         }
 
@@ -150,33 +126,44 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
         {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
 
-            string query = "UPDATE WD SET WD.IsDeleted = 1" +
-                " FROM WeatherDatas WD" +
-                " JOIN Locations L ON WD.LocationId = L.LocationId" +
-                " WHERE WD.DateAndTime < @beforeDate";
-
-            await using SqlCommand command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@beforeDate", deleteWeatherDataBeforeThisDate);
-
+            await RemoveOldData(deleteWeatherDataBeforeThisDate);
+        }
+        private async Task RemoveOldData(DateTime deleteWeatherDataBeforeThisDate)
+        {
             try
             {
-                var result = await command.ExecuteNonQueryAsync();
-                if (result > 0)
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "UPDATE WD SET WD.IsDeleted = 1" +
+                    " FROM WeatherDatas WD" +
+                    " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                    " WHERE WD.DateAndTime < @beforeDate";
+
+                await using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@beforeDate", deleteWeatherDataBeforeThisDate);
+
+                try
                 {
-                    Debug.WriteLine("data successfully deleted");
+                    var result = await command.ExecuteNonQueryAsync();
+                    if (result > 0)
+                    {
+                        Debug.WriteLine("data successfully deleted");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
             }
-
         }
-
 
 
 
@@ -186,230 +173,24 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task RestoreAllData()
         {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "UPDATE WeatherDatas SET WeatherDatas.IsDeleted = 0 FROM WeatherDatas WHERE WeatherDatas.IsDeleted = 1";
-            await using SqlCommand command = new SqlCommand(query, connection);
-
+            await RestoreData();
+        }
+        private async Task RestoreData()
+        {
             try
             {
-                var result = await command.ExecuteNonQueryAsync();
-                if (result > 0)
-                {
-                    Debug.WriteLine("data successfully restored");
-                }
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
 
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
-            }
-        }
-        
-        
-        
-        
-        /// <summary>
-        /// extracts locations based on indexes
-        /// </summary>
-        /// <param name="fromIndex"></param>
-        /// <param name="toIndex"></param>
-        /// <returns></returns>
-        public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
-        {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "SELECT * FROM Locations WHERE LocationId BETWEEN @fromIndex AND @toIndex";
-            await using SqlCommand command = new SqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@fromIndex", fromIndex);
-            command.Parameters.AddWithValue("@toIndex", toIndex);
-
-            try
-            {
-                var result = await command.ExecuteReaderAsync();
-                List<string> coordinates = new List<string>();
-
-                while (await result.ReadAsync())
-                {
-                    string latitude = result["Latitude"].ToString();
-                    string longitude = result["Longitude"].ToString();
-
-                    string coordinate = $"{latitude}-{longitude}";
-                    coordinates.Add(coordinate);
-                }
-                return coordinates;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
-            }
-            return null;
-        }
-
-
-
-
-        /// <summary>
-        /// returns the total number of locations in the database
-        /// </summary>
-        /// <returns></returns>
-        public async Task<int> FetchLocationCount()
-        {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "SELECT COUNT(*) FROM Locations";
-            await using SqlCommand command = new SqlCommand(query, connection);
-
-            try
-            {
-                var result = await command.ExecuteReaderAsync();
-                if (await result.ReadAsync())
-                {
-                    return result.GetInt32(0);
-
-                }
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
-                return 0;
-            }
-
-        }
-        
-        
-        
-        /// <summary>
-        /// returns a list of addresses based on partial search
-        /// </summary>
-        /// <param name="partialAddress"></param>
-        /// <returns></returns>
-        public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
-        {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
-                " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
-                " WHERE(Locations.StreetName + ' ' + Locations.StreetNumber) LIKE @searchCriteria +'%'" +
-                " OR Cities.PostalCode LIKE @searchCriteria + '%'" +
-                " OR Cities.CityName LIKE @searchCriteria + '%'";
-
-
-            await using SqlCommand command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@searchCriteria", partialAddress);
-
-            try
-            {
-                List<string> addresses = new List<string>();
-
-                var result = await command.ExecuteReaderAsync();
-                while (await result.ReadAsync())
-                {
-                    // Combine columns into a single string with the specified format for each row
-                    string combinedAddress = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
-
-                    // Add the combined string to the list
-                    addresses.Add(combinedAddress);
-                }
-
-                return addresses;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
-                return null; // Or any other default value in case of an error
-            }
-        }
-
-
-        
-        
-        /// <summary>
-        /// adding weather data to database
-        /// </summary>
-        /// <param name="weatherDataFromIOT"></param>
-        /// <returns></returns>
-        public async Task InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "DECLARE @LocationId INT;" +
-                "SELECT @LocationId = LocationId FROM Locations WHERE Latitude = @Latitude AND Longitude = @Longitude; " +
-                "INSERT INTO WeatherDatas(TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId)" +
-                "VALUES(@Temperature, @WindSpeed, @WindDirection, @WindGust, @RelativeHumidity, @Rain, @GlobalTiltedIrRadiance, @DateAndTime, @LocationId)";
-
-            await using SqlCommand command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Latitude", weatherDataFromIOT.Latitude);
-            command.Parameters.AddWithValue("@Longitude", weatherDataFromIOT.Longitude);
-            command.Parameters.AddWithValue("@Temperature", weatherDataFromIOT.Temperature);
-            command.Parameters.AddWithValue("@WindSpeed", weatherDataFromIOT.WindSpeed);
-            command.Parameters.AddWithValue("@WindDirection", weatherDataFromIOT.WindDirection);
-            command.Parameters.AddWithValue("@WindGust", weatherDataFromIOT.WindGust);
-            command.Parameters.AddWithValue("@RelativeHumidity", weatherDataFromIOT.RelativeHumidity);
-            command.Parameters.AddWithValue("@Rain", weatherDataFromIOT.Rain);
-            command.Parameters.AddWithValue("@GlobalTiltedIrRadiance", weatherDataFromIOT.GlobalTiltedIrRadiance);
-            command.Parameters.AddWithValue("@DateAndTime", weatherDataFromIOT.DateAndTime);
-
-            try
-            {
-                var result = await command.ExecuteNonQueryAsync();
-                if (result > 0)
-                {
-                    Debug.WriteLine("weather data successfully inserted");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-                // Ready for logging
-            }
-        }
-
-        
-        
-        /// <summary>
-        /// adding addresses from latitude and longitude to binary data
-        /// </summary>
-        /// <param name="BinaryData"></param>
-        /// <returns></returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
-        {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
-                " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
-                " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
-
-
-            await using SqlCommand command = new SqlCommand(query, connection);
-            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
-            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
-
-            foreach (var data in BinaryData)
-            {
-                string latitude = data.Coordinates.Split('-')[0];
-                string longitude = data.Coordinates.Split("-")[1];
-                command.Parameters["@Latitude"].Value = latitude;
-                command.Parameters["@Longitude"].Value = longitude;
+                string query = "UPDATE WeatherDatas SET WeatherDatas.IsDeleted = 0 FROM WeatherDatas WHERE WeatherDatas.IsDeleted = 1";
+                await using SqlCommand command = new SqlCommand(query, connection);
 
                 try
                 {
-                    var result = await command.ExecuteReaderAsync();
-                    while (await result.ReadAsync())
+                    var result = await command.ExecuteNonQueryAsync();
+                    if (result > 0)
                     {
-                        data.Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+                        Debug.WriteLine("data successfully restored");
                     }
 
                 }
@@ -419,8 +200,284 @@ namespace DVF_API.Data.Repositories
                     // Ready for logging
                 }
             }
-
-            return BinaryData;
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
         }
+
+
+
+        /// <summary>
+        /// extracts locations based on indexes
+        /// </summary>
+        /// <param name="fromIndex"></param>
+        /// <param name="toIndex"></param>
+        /// <returns></returns>
+        public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
+        {
+            return await GetLocationCoordinates(fromIndex, toIndex);
+        }
+        private async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT * FROM Locations WHERE LocationId BETWEEN @fromIndex AND @toIndex";
+                await using SqlCommand command = new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@fromIndex", fromIndex);
+                command.Parameters.AddWithValue("@toIndex", toIndex);
+
+                try
+                {
+                    var result = await command.ExecuteReaderAsync();
+                    List<string> coordinates = new List<string>();
+
+                    while (await result.ReadAsync())
+                    {
+                        string latitude = result["Latitude"].ToString();
+                        string longitude = result["Longitude"].ToString();
+
+                        string coordinate = $"{latitude}-{longitude}";
+                        coordinates.Add(coordinate);
+                    }
+                    return coordinates;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                }
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+        }
+
+
+
+        /// <summary>
+        /// returns the total number of locations in the database
+        /// </summary>
+        /// <returns></returns>
+        public async Task<int> FetchLocationCount()
+        {
+            
+            return await GetLocationCount();
+        }
+        private async Task<int> GetLocationCount()
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT COUNT(*) FROM Locations";
+                await using SqlCommand command = new SqlCommand(query, connection);
+
+                try
+                {
+                    var result = await command.ExecuteReaderAsync();
+                    if (await result.ReadAsync())
+                    {
+                        return result.GetInt32(0);
+
+                    }
+                    return 0;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                    return 0;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+        }
+
+
+        /// <summary>
+        /// returns a list of addresses based on partial search
+        /// </summary>
+        /// <param name="partialAddress"></param>
+        /// <returns></returns>
+        public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
+        {
+            return await GethMatchingAddresses(partialAddress);
+        }
+        private async Task<List<string>> GethMatchingAddresses(string partialAddress)
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                    " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
+                    " WHERE(Locations.StreetName + ' ' + Locations.StreetNumber) LIKE @searchCriteria +'%'" +
+                    " OR Cities.PostalCode LIKE @searchCriteria + '%'" +
+                    " OR Cities.CityName LIKE @searchCriteria + '%'";
+
+
+                await using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@searchCriteria", partialAddress);
+
+                try
+                {
+                    List<string> addresses = new List<string>();
+
+                    var result = await command.ExecuteReaderAsync();
+                    while (await result.ReadAsync())
+                    {
+                        // Combine columns into a single string with the specified format for each row
+                        string combinedAddress = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+
+                        // Add the combined string to the list
+                        addresses.Add(combinedAddress);
+                    }
+
+                    return addresses;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                    return null; // Or any other default value in case of an error
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+        }
+
+
+
+        /// <summary>
+        /// adding weather data to database
+        /// </summary>
+        /// <param name="weatherDataFromIOT"></param>
+        /// <returns></returns>
+        public async Task InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
+        {
+            await InsertWeatherData(weatherDataFromIOT);
+        }
+        private async Task InsertWeatherData(WeatherDataFromIOTDto weatherDataFromIOT)
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "DECLARE @LocationId INT;" +
+                    "SELECT @LocationId = LocationId FROM Locations WHERE Latitude = @Latitude AND Longitude = @Longitude; " +
+                    "INSERT INTO WeatherDatas(TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId)" +
+                    "VALUES(@Temperature, @WindSpeed, @WindDirection, @WindGust, @RelativeHumidity, @Rain, @GlobalTiltedIrRadiance, @DateAndTime, @LocationId)";
+
+                await using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Latitude", weatherDataFromIOT.Latitude);
+                command.Parameters.AddWithValue("@Longitude", weatherDataFromIOT.Longitude);
+                command.Parameters.AddWithValue("@Temperature", weatherDataFromIOT.Temperature);
+                command.Parameters.AddWithValue("@WindSpeed", weatherDataFromIOT.WindSpeed);
+                command.Parameters.AddWithValue("@WindDirection", weatherDataFromIOT.WindDirection);
+                command.Parameters.AddWithValue("@WindGust", weatherDataFromIOT.WindGust);
+                command.Parameters.AddWithValue("@RelativeHumidity", weatherDataFromIOT.RelativeHumidity);
+                command.Parameters.AddWithValue("@Rain", weatherDataFromIOT.Rain);
+                command.Parameters.AddWithValue("@GlobalTiltedIrRadiance", weatherDataFromIOT.GlobalTiltedIrRadiance);
+                command.Parameters.AddWithValue("@DateAndTime", weatherDataFromIOT.DateAndTime);
+
+                try
+                {
+                    var result = await command.ExecuteNonQueryAsync();
+                    if (result > 0)
+                    {
+                        Debug.WriteLine("weather data successfully inserted");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+        }
+
+
+        /// <summary>
+        /// adding addresses from latitude and longitude to binary data
+        /// </summary>
+        /// <param name="BinaryData"></param>
+        /// <returns></returns>
+        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        {
+            return await GetAddressByCoordinates(BinaryData);
+        }
+        private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                    " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
+                    " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
+
+
+                await using SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+                command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+
+                foreach (var data in BinaryData)
+                {
+                    string latitude = data.Coordinates.Split('-')[0];
+                    string longitude = data.Coordinates.Split("-")[1];
+                    command.Parameters["@Latitude"].Value = latitude;
+                    command.Parameters["@Longitude"].Value = longitude;
+
+                    try
+                    {
+                        var result = await command.ExecuteReaderAsync();
+                        while (await result.ReadAsync())
+                        {
+                            data.Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+                        }
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"An error occurred: {ex.Message}");
+                        // Ready for logging
+                    }
+                }
+
+                return BinaryData;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+
+
+        }
+
     }
 }
