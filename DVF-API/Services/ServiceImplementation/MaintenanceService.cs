@@ -6,6 +6,9 @@ namespace DVF_API.Services.ServiceImplementation
     public class MaintenanceService: IMaintenanceService
     {
 
+        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
+        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
+
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
        public MaintenanceService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
@@ -21,10 +24,10 @@ namespace DVF_API.Services.ServiceImplementation
         /// </summary>
         /// <param name="deleteDataDto"></param>
         public void RemoveData(DateTime deleteDataDto) 
-        { 
+        {
             //Method to delete data
-            _databaseRepository.DeleteOldData(deleteDataDto);
-            _fileRepository.DeleteOldData(deleteDataDto);
+            //_databaseRepository.DeleteOldData(deleteDataDto);
+            _fileRepository.DeleteOldData(_baseDirectory, _deletedFilesDirectory,deleteDataDto);
         }
 
 
@@ -35,8 +38,8 @@ namespace DVF_API.Services.ServiceImplementation
         /// </summary>
         public void RestoreData()
         {
-            _databaseRepository.RestoreAllData();
-            _fileRepository.RestoreAllData();
+            //_databaseRepository.RestoreAllData();
+            _fileRepository.RestoreAllData(_baseDirectory, _deletedFilesDirectory);
         }
     }
 }

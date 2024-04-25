@@ -6,7 +6,7 @@ using System.Globalization;
 
 namespace DVF_API.Services.ServiceImplementation
 {
-    public class DataService : IDataService
+    public class DataService_old : IDataService
     {
 
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
@@ -18,7 +18,7 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly IBinaryConversionManager _binaryConversionManager;
         private readonly ISolarPositionManager _solarPositionManager;
 
-        public DataService(
+        public DataService_old(
             ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository,
             ICrudFileRepository crudFileRepository, IBinaryConversionManager binaryConversionManager,
             ISolarPositionManager solarPositionManager)
