@@ -11,6 +11,7 @@ using Microsoft.VisualBasic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Domain.BusinessLogic;
 using CoordinateSharp;
+using DVF_API.Services.Models;
 
 
 namespace DVF_API.Data.Repositories
@@ -40,64 +41,126 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task<MetaDataDto> FetchWeatherDataAsync(SearchDto searchDto)
         {
-            await using SqlConnection connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
+            //  return await GetWeatherDataAsync(searchDto);
 
-            string query = "SELECT WD.*,C.CityName,c.PostalCode,L.StreetName,L.StreetNumber,L.Latitude,L.Longitude" +
-                " FROM WeatherDatas WD" +
-                " JOIN Locations L ON WD.LocationId = L.LocationId" +
-                " JOIN Cities C ON L.CityId = C.CityId" +
-                " WHERE WD.DateAndTime >= @FromDate" +
-                " AND WD.DateAndTime <= @ToDate" +
-                " AND L.Latitude = @Latitude" +
-                " AND L.Longitude = @Longitude" +
-                " AND WD.IsDeleted = 0";
+            // Create a list to hold the tasks
+            //List<Task> tasks = new List<Task>();
+            //object lockObject = new object(); // Used to synchronize access to 'weatherData'
+            //List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
 
-            await using SqlCommand command = new SqlCommand(query, connection);
+            //// Create a semaphore to limit the number of concurrent tasks
+            //SemaphoreSlim semaphore = new SemaphoreSlim(Environment.ProcessorCount / 2); // Number of logical processors (minus 1 to ensure a bit of space if necessary to allow for other tasks)
 
-            CultureInfo culture = new CultureInfo("en-US");
-            string formattedToDate = searchDto.ToDate.ToString("yyyy-MM-dd HH:mm:ss", culture);
-            string formattedFromDate = searchDto.FromDate.ToString("yyyy-MM-dd HH:mm:ss", culture);
+            //foreach (string coordinates in searchDto.Coordinates)
+            //{
+            //    tasks.Add(Task.Run(async () =>
+            //    {
+            //        await semaphore.WaitAsync(); // Acquire the semaphore
+            //        try
+            //        {
+            //            // Fetch data from the database for the current location
+            //          List<WeatherDataDto>   weatherDataForLocation = await FetchWeatherDataForLocationAsync(coordinates, searchDto.FromDate, searchDto.ToDate);
 
-            command.Parameters.AddWithValue("@FromDate ", formattedFromDate);
-            command.Parameters.AddWithValue("@ToDate", formattedToDate);
-            command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
-            command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+            //            // Add the fetched data to the shared list
+            //            lock (lockObject) // Synchronize access to 'weatherData'
+            //            {
+            //                weatherData.AddRange(weatherDataForLocation);
+            //            }
+            //        }
+            //        finally
+            //        {
+            //            semaphore.Release(); // Release the semaphore
+            //        }
+            //    }));
+            //}
 
+            //// Wait for all tasks to complete
+            //await Task.WhenAll(tasks);
 
-            List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
-            foreach (string coordinates in searchDto.Coordinates)
+            //MetaDataDto metaDataDto = new MetaDataDto();
+            //metaDataDto.WeatherData = weatherData;
+            //return metaDataDto;
+            return await GetWeatherDataAsync(searchDto);
+        }
+
+        private async Task<MetaDataDto> GetWeatherDataAsync(SearchDto searchDto)
+        {
+            try
             {
-                string latitude = coordinates.Split('-')[0];
-                string longitude = coordinates.Split("-")[1];
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+                // Split coordinates into latitude and longitude lists
+                var latitudes = searchDto.Coordinates.Select(c => c.Split('-')[0]);
+                var longitudes = searchDto.Coordinates.Select(c => c.Split('-')[1]);
 
-                command.Parameters["@Latitude"].Value = latitude;
-                command.Parameters["@Longitude"].Value = longitude;
+                // Format the latitude and longitude lists as comma-separated strings
+                string latitudeValues = string.Join(",", latitudes.Select(lat => $"'{lat}'"));
+                string longitudeValues = string.Join(",", longitudes.Select(lon => $"'{lon}'"));
+
+                string query = "SELECT WD.*, C.CityName, C.PostalCode, L.StreetName, L.StreetNumber, L.Latitude, L.Longitude" +
+                    " FROM WeatherDatas WD" +
+                    " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                    " JOIN Cities C ON L.CityId = C.CityId" +
+                    " WHERE WD.DateAndTime >= @FromDate" +
+                    " AND WD.DateAndTime <= @ToDate" +
+                    $" AND L.Latitude IN ({latitudeValues})" +
+                    $" AND L.Longitude IN ({longitudeValues})" + // Added parentheses around longitudeValues
+                    " AND WD.IsDeleted = 0";
+
+                await using SqlCommand command = new SqlCommand(query, connection);
+                List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
+                //while (await reader.ReadAsync())
+                //{
+                //    Debug.WriteLine(reader["StreetName"].ToString());
+                //}
+
+
+                CultureInfo culture = new CultureInfo("en-US");
+                string formattedToDate = searchDto.ToDate.ToString("yyyy-MM-dd", culture);
+                string formattedFromDate = searchDto.FromDate.ToString("yyyy-MM-dd", culture);
+
+                command.Parameters.AddWithValue("@FromDate ", formattedFromDate);
+                command.Parameters.AddWithValue("@ToDate", formattedToDate);
+                //command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+                //command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+
+
+
+              //  using SqlDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
+               
+                //foreach (string coordinates in searchDto.Coordinates)
+                //{
+                //    //string latitude = coordinates.Split('-')[0];
+                //    //string longitude = coordinates.Split("-")[1];
+
+                //    //command.Parameters["@Latitude"].Value = latitude;
+                //    //command.Parameters["@Longitude"].Value = longitude;
+
+                //}
 
                 try
                 {
-                    var result = await command.ExecuteReaderAsync();
+                    using SqlDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
 
-                    while (await result.ReadAsync())
+                    while (await reader.ReadAsync())
                     {
                         WeatherDataDto data = new WeatherDataDto()
                         {
-                            Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}",
-                            Latitude = result["Latitude"].ToString(),
-                            Longitude = result["Longitude"].ToString(),
-                            TemperatureC = Convert.ToSingle(result["TemperatureC"]),
-                            WindSpeed = Convert.ToSingle(result["WindSpeed"]),
-                            WindDirection = Convert.ToSingle(result["WindDirection"]),
-                            WindGust = Convert.ToSingle(result["WindGust"]),
-                            RelativeHumidity = Convert.ToSingle(result["RelativeHumidity"]),
-                            Rain = Convert.ToSingle(result["Rain"]),
-                            GlobalTiltedIrRadiance = Convert.ToSingle(result["GlobalTiltedIrRadiance"]),
-                            DateAndTime = Convert.ToDateTime(result["DateAndTime"]),
+                            Address = $"{reader["StreetName"]} {reader["StreetNumber"]}, {reader["PostalCode"]} {reader["CityName"]}",
+                            Latitude = reader["Latitude"].ToString(),
+                            Longitude = reader["Longitude"].ToString(),
+                            TemperatureC = Convert.ToSingle(reader["TemperatureC"]),
+                            WindSpeed = Convert.ToSingle(reader["WindSpeed"]),
+                            WindDirection = Convert.ToSingle(reader["WindDirection"]),
+                            WindGust = Convert.ToSingle(reader["WindGust"]),
+                            RelativeHumidity = Convert.ToSingle(reader["RelativeHumidity"]),
+                            Rain = Convert.ToSingle(reader["Rain"]),
+                            GlobalTiltedIrRadiance = Convert.ToSingle(reader["GlobalTiltedIrRadiance"]),
+                            DateAndTime = Convert.ToDateTime(reader["DateAndTime"]),
                         };
 
                         weatherData.Add(data);
                     }
-                    result.Close();
 
                 }
                 catch (Exception ex)
@@ -105,19 +168,83 @@ namespace DVF_API.Data.Repositories
                     Debug.WriteLine($"An error occurred: {ex.Message}");
                     // Ready for logging
                 }
+
+
+                MetaDataDto metaDatamodel = new MetaDataDto()
+                {
+                    WeatherData = weatherData
+                };
+
+
+                return metaDatamodel;
             }
-
-
-            MetaDataDto metaDatamodel = new MetaDataDto()
+            catch (Exception e)
             {
-                WeatherData = weatherData
-            };
-
-
-            return metaDatamodel;
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
         }
 
 
+        // Define a method to fetch weather data for a single location asynchronously
+        //async Task<List<WeatherDataDto>> FetchWeatherDataForLocationAsync(string coordinates, DateOnly fromDate, DateOnly toDate)
+        //{
+        //    using SqlConnection connection = new SqlConnection(_connectionString);
+        //    await connection.OpenAsync();
+
+
+
+
+
+        //    string query = "SELECT WD.*, C.CityName, C.PostalCode, L.StreetName, L.StreetNumber, L.Latitude, L.Longitude" +
+        //                   " FROM WeatherDatas WD" +
+        //                   " JOIN Locations L ON WD.LocationId = L.LocationId" +
+        //                   " JOIN Cities C ON L.CityId = C.CityId" +
+        //                   " WHERE WD.DateAndTime >= @FromDate" +
+        //                   " AND WD.DateAndTime <= @ToDate" +
+        //                   " AND L.Latitude = @Latitude" +
+        //                   " AND L.Longitude = @Longitude" +
+        //                   " AND WD.IsDeleted = 0";
+
+        //    using SqlCommand command = new SqlCommand(query, connection);
+
+        //    CultureInfo culture = new CultureInfo("en-US");
+        //    string formattedToDate = toDate.ToString("yyyy-MM-dd", culture);
+        //    string formattedFromDate = fromDate.ToString("yyyy-MM-dd", culture);
+
+        //    command.Parameters.AddWithValue("@FromDate", formattedFromDate);
+        //    command.Parameters.AddWithValue("@ToDate", formattedToDate);
+        //    command.Parameters.AddWithValue("@Latitude", coordinates.Split('-')[0]);
+        //    command.Parameters.AddWithValue("@Longitude", coordinates.Split("-")[1]);
+
+        //    using SqlDataReader reader = await command.ExecuteReaderAsync();
+        //    List<WeatherDataDto> weatherDatas = new List<WeatherDataDto>();
+        //    while (await reader.ReadAsync())
+        //    {
+
+
+
+
+        //        // Construct and return a WeatherDataDto object
+        //        WeatherDataDto weatherData = new WeatherDataDto()
+        //        {
+        //            Address = $"{reader["StreetName"]} {reader["StreetNumber"]}, {reader["PostalCode"]} {reader["CityName"]}",
+        //            Latitude = reader["Latitude"].ToString(),
+        //            Longitude = reader["Longitude"].ToString(),
+        //            TemperatureC = Convert.ToSingle(reader["TemperatureC"]),
+        //            WindSpeed = Convert.ToSingle(reader["WindSpeed"]),
+        //            WindDirection = Convert.ToSingle(reader["WindDirection"]),
+        //            WindGust = Convert.ToSingle(reader["WindGust"]),
+        //            RelativeHumidity = Convert.ToSingle(reader["RelativeHumidity"]),
+        //            Rain = Convert.ToSingle(reader["Rain"]),
+        //            GlobalTiltedIrRadiance = Convert.ToSingle(reader["GlobalTiltedIrRadiance"]),
+        //            DateAndTime = Convert.ToDateTime(reader["DateAndTime"]),
+        //        };
+        //        weatherDatas.Add(weatherData);
+        //    }
+
+        //    return weatherDatas;
+        //}
 
         /// <summary>
         /// Deletes all weather data until specific date 
@@ -126,7 +253,6 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
         {
-
             await RemoveOldData(deleteWeatherDataBeforeThisDate);
         }
         private async Task RemoveOldData(DateTime deleteWeatherDataBeforeThisDate)
@@ -269,7 +395,7 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task<int> FetchLocationCount()
         {
-            
+
             return await GetLocationCount();
         }
         private async Task<int> GetLocationCount()

@@ -150,19 +150,28 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-
+        /// <summary>
+        /// returns number of bytes this object contains
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public int GetModelSize(object obj)
         {
-            // Calculate memory size using Marshal.SizeOf
-            //return Marshal.SizeOf(obj);
+            //string jsonString = JsonSerializer.Serialize(obj);
+            //return Encoding.UTF8.GetBytes(jsonString).Length;
 
-            string jsonString = JsonSerializer.Serialize(obj);
-            return Encoding.UTF8.GetBytes(jsonString).Length;
+            byte[] jsonBytes = JsonSerializer.SerializeToUtf8Bytes(obj);
+            return jsonBytes.Length;
         }
 
+        /// <summary>
+        /// override method to take in an list of an object
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
+        /// <returns></returns>
         public int GetModelSize<T>(List<T> list)
         {
-            // Calculate memory size of the list
             int totalSize = 0;
             foreach (var item in list)
             {
@@ -191,7 +200,31 @@ namespace DVF_API.Domain.BusinessLogic
             return (float)bytes / (1024 * 1024 * 1024);
         }
 
-       
+
+        public string ConvertBytesToFormat(int bytes)
+        {
+             int KB = 1024;
+             int MB = KB * 1024;
+             int GB = MB * 1024;
+
+            if (bytes < KB)
+            {
+                return $"{bytes} bytes";
+            }
+            else if (bytes < MB)
+            {
+                return $"{bytes / KB} KB";
+            }
+            else if (bytes < GB)
+            {
+                return $"{bytes / MB} MB";
+            }
+            else
+            {
+                return $"{bytes / GB} GB";
+            }
+        }
+
 
         /// <summary>
         /// begins measuring the time and process of current process, returns the elapsed time and a stopwatch object
@@ -230,13 +263,18 @@ namespace DVF_API.Domain.BusinessLogic
         /// records amount of bytes for current process running
         /// </summary>
         /// <returns></returns>
-        public (Process currentProcess, long processBytes) BeginMeasureMemory()
+        public long BeginMeasureMemory()
         {
+            // Force garbage collection before measurement
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
             // Get the current process
             Process process = Process.GetCurrentProcess();
-            long ramUsageBeforeBytes = process.WorkingSet64;
+            long ramUsageBeforeBytes = process.PrivateMemorySize64;
+            // var privateMem = process.PrivateMemorySize64;
             // Get the RAM usage before executing the code block
-            return (currentProcess: process, processBytes: ramUsageBeforeBytes);
+            return ramUsageBeforeBytes;
         }
 
         /// <summary>
@@ -245,13 +283,13 @@ namespace DVF_API.Domain.BusinessLogic
         /// <param name="ramUsageBeforeBytes"></param>
         /// <param name="currentProcess"></param>
         /// <returns></returns>
-        public long StopMeasureMemory(long ramUsageBeforeBytes, Process currentProcess)
+        public int StopMeasureMemory(long ramUsageBeforeBytes)
         {
             // Get the RAM usage after executing the code block
-            long ramUsageAfterBytes = currentProcess.WorkingSet64;
-
+            long ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
+            // var privateMem = Process.GetCurrentProcess().PrivateMemorySize64;
             // Calculate the difference in RAM usage
-            return ramUsageAfterBytes - ramUsageBeforeBytes;
+            return (int)ramUsageAfterBytes - (int)ramUsageBeforeBytes;
         }
     }
 }

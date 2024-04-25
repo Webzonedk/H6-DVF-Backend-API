@@ -74,17 +74,18 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
 
                 //measure Memory
-                (Process currentProcess, long currentBytes) = _utilityManager.BeginMeasureMemory();
+                long currentBytes = _utilityManager.BeginMeasureMemory();
 
                 //get data
                 MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
-              
-                
+
+
                 // return recorded CPU usage
                 var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
 
                 //return recorded Memory usage
-                var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
+                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
+                string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
                 if (modelResult != null)
                 {
@@ -99,13 +100,13 @@ namespace DVF_API.Services.ServiceImplementation
                     int weatherDataInBytes = _utilityManager.GetModelSize(modelResult);
                     int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult.WeatherData);
                     int totalBytes = metaDataModelInBytes + weatherDataInBytes;
-                    float dataCollectedInMB = _utilityManager.ConvertBytesToMegabytes(totalBytes);
+                    string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
 
                     //map measurements to model
                     modelResult.DataLoadedMB = dataCollectedInMB;
                     modelResult.FetchDataTimer = cpuResult.ElapsedTimeMs;
                     modelResult.CpuUsage = cpuResult.CpuUsage;
-                    modelResult.RamUsage = memory;
+                    modelResult.RamUsage = measuredRamUsage;
 
                     return modelResult;
                 }

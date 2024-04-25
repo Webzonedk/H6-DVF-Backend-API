@@ -13,8 +13,10 @@ namespace DVF_API.Domain.Interfaces
         float ConvertBytesToGigabytes(int bytes);
         (TimeSpan, Stopwatch) BeginMeasureCPU();
         (float CpuUsage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan cpuTimeBefore, Stopwatch stopwatch);
-        (Process currentProcess, long processBytes) BeginMeasureMemory();
-        long StopMeasureMemory(long ramUsageBeforeBytes, Process currentProcess);
+        long BeginMeasureMemory();
+        int StopMeasureMemory(long ramUsageBeforeBytes);
+        string ConvertBytesToFormat(int bytes);
+
 
 
     }
