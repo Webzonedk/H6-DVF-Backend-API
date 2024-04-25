@@ -297,10 +297,11 @@ namespace DVF_API.Data.Repositories
             await using SqlConnection connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName FROM Locations" +
-               " JOIN Cities ON Locations.CityId = Cities.CityId" +
-               " WHERE (Locations.StreetName + ' ' + Locations.StreetNumber LIKE @searchCriteria" +
-               " OR Cities.PostalCode LIKE @searchCriteria OR Cities.CityName LIKE @searchCriteria)";
+            string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
+                " WHERE(Locations.StreetName + ' ' + Locations.StreetNumber) LIKE @searchCriteria +'%'" +
+                " OR Cities.PostalCode LIKE @searchCriteria + '%'" +
+                " OR Cities.CityName LIKE @searchCriteria + '%'";
 
 
             await using SqlCommand command = new SqlCommand(query, connection);
