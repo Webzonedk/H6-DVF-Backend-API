@@ -116,7 +116,7 @@ namespace DVF_API.Services.ServiceImplementation
 
                 if (createDB)
                 {
-                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
+                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
 
                 }
                 if (createFiles)
@@ -172,26 +172,20 @@ namespace DVF_API.Services.ServiceImplementation
 
                 //Vi mangler at gruppere ud fra dato Vi mangler årstal og dato struktur for at kunne lave filerne mindre og smide dem afsted løbende.
 
-                //  var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)).ToList();
-                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)).Select(group =>
-                {
-                    var orderedList = group.OrderBy(dto => dto.Time).ToList();
-                    return orderedList;
-                })
-      .ToList();
+                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)[0]);
                 historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+
+             
 
                 foreach (var group in groupedData)
                 {
 
-                    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
                     var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
                     orderedList.Clear();
 
 
-
-
-                    var date = MixedYearDateTimeSplitter(group[0].Time).ToString();// Full date YYYYMMDD
+                    string date = MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
                     var year = date.Substring(0, 4);
                     var monthDay = date.Substring(4, 4);
                     var yearDirectory = Path.Combine(_baseDirectory, year);
@@ -200,8 +194,9 @@ namespace DVF_API.Services.ServiceImplementation
 
 
                     Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
-                    // _historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                     //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
                 }
+                groupedData= null;
             }
             catch (Exception ex)
             {
