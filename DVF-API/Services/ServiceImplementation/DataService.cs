@@ -70,22 +70,23 @@ namespace DVF_API.Services.ServiceImplementation
             MetaDataDto metaDataDto = new MetaDataDto();
             if (searchDto.ToggleDB)
             {
-                // start measuring CPU usage before executing the code
+                // start measuring CPU usage and Memory before executing the code
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
+                long currentBytes = _utilityManager.BeginMeasureMemory();
 
-                //measure Memory
-                (Process currentProcess, long currentBytes) = _utilityManager.BeginMeasureMemory();
+                
 
                 //get data
                 MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
-              
-                
-                // return recorded CPU usage
+
+
+                // return recorded CPU usage and memory usage
                 var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
+                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
+                string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-                //return recorded Memory usage
-                var memory = _utilityManager.StopMeasureMemory(currentBytes, currentProcess);
-
+               
+                //map data to model if model is retrieved successfully
                 if (modelResult != null)
                 {
                     //calculate sun angles
@@ -96,16 +97,16 @@ namespace DVF_API.Services.ServiceImplementation
                     }
 
                     //calculate amount of data
-                    int weatherDataInBytes = _utilityManager.GetModelSize(modelResult);
-                    int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult.WeatherData);
+                    int weatherDataInBytes = _utilityManager.GetModelSize(modelResult.WeatherData);
+                    int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult);
                     int totalBytes = metaDataModelInBytes + weatherDataInBytes;
-                    float dataCollectedInMB = _utilityManager.ConvertBytesToMegabytes(totalBytes);
+                    string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
 
                     //map measurements to model
                     modelResult.DataLoadedMB = dataCollectedInMB;
                     modelResult.FetchDataTimer = cpuResult.ElapsedTimeMs;
                     modelResult.CpuUsage = cpuResult.CpuUsage;
-                    modelResult.RamUsage = memory;
+                    modelResult.RamUsage = measuredRamUsage;
 
                     return modelResult;
                 }
@@ -116,7 +117,18 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
 
+
+                // start measuring CPU usage and Memory before executing the code
+                (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
+                long currentBytes = _utilityManager.BeginMeasureMemory();
+
                 List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
+
+                // return recorded CPU usage and memory usage
+                var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
+                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
+                string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
+
                 listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(listOfBinaryDataFromFileDto);
                 for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
                 {
@@ -148,6 +160,19 @@ namespace DVF_API.Services.ServiceImplementation
                     weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
                 }
                 metaDataDto.WeatherData = weatherDataDtoList;
+
+                //calculate amount of data
+                int weatherDataInBytes = _utilityManager.GetModelSize(metaDataDto.WeatherData);
+                int metaDataModelInBytes = _utilityManager.GetModelSize(metaDataDto);
+                int totalBytes = metaDataModelInBytes + weatherDataInBytes;
+                string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
+
+                //map measurements to model
+                metaDataDto.DataLoadedMB = dataCollectedInMB;
+                metaDataDto.FetchDataTimer = cpuResult.ElapsedTimeMs;
+                metaDataDto.CpuUsage = cpuResult.CpuUsage;
+                metaDataDto.RamUsage = measuredRamUsage;
+
                 return metaDataDto;
             }
 
