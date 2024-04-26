@@ -3,6 +3,7 @@ using DVF_API.Data.Models;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http;
@@ -129,7 +130,62 @@ namespace DVF_API.Services.ServiceImplementation
 
         }
 
+        private List<byte[]> MapDataSaveToStorageDtoToByteArray(List<SaveToStorageDto> _saveToStorageDto)
+        {
+            ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
+            Parallel.ForEach(_saveToStorageDto, data =>
+            {
+                for (int i = 0; i < data.HistoricWeatherData.Hourly.Time.Length; i++)
+                {
+                    HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                    {
+                        Id = data.LocationId,
+                        Latitude = ConvertCoordinate(data.Latitude),
+                        Longitude = ConvertCoordinate(data.Longitude),
+                        Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[i]),
+                        Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[i],
+                        Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[i],
+                        Rain = data.HistoricWeatherData.Hourly.Rain[i],
+                        Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[i],
+                        Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[i],
+                        Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[i],
+                        Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[i]
+                    };
+                    historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                }
+            });
+
+            return null;
+        }
+
+        private double ConvertDateTimeToFloatInternal(string time)
+        {
+            DateTime parsedDateTime = DateTime.Parse(time);
+            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
+        }
+
+
+        private float ConvertCoordinate(string coordinate)
+        {
+            var normalized = coordinate.Replace(',', '.');
+            return float.Parse(normalized, CultureInfo.InvariantCulture);
+        }
+
+
+        private object[] MixedYearDateTimeSplitter(double time)
+        {
+            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
+            string timeString = time.ToString("000000000000");
+
+            // Extract year, month, and day
+            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
+
+            // Extract HHmm as float
+            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
+
+            return result;
+        }
 
 
         private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)

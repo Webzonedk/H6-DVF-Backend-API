@@ -209,28 +209,7 @@ namespace DVF_API.Data.Repositories
         {
             try
             {
-                ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
-
-                Parallel.ForEach(dataToSave, data =>
-                {
-                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
-                    {
-                        HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
-                        {
-                            Latitude = ConvertCoordinate(data.Latitude),
-                            Longitude = ConvertCoordinate(data.Longitude),
-                            Time = ConvertDateTimeToFloatInternal(time),
-                            Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
-                            Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
-                            Rain = data.HistoricWeatherData.Hourly.Rain[index],
-                            Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
-                            Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
-                            Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
-                            Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
-                        };
-                        historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
-                    });
-                });
+               
 
                 var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
                 historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
@@ -274,33 +253,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private double ConvertDateTimeToFloatInternal(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
-        }
-
-
-        private float ConvertCoordinate(string coordinate)
-        {
-            var normalized = coordinate.Replace(',', '.');
-            return float.Parse(normalized, CultureInfo.InvariantCulture);
-        }
-
-
-        private object[] MixedYearDateTimeSplitter(double time)
-        {
-            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
-            string timeString = time.ToString("000000000000");
-
-            // Extract year, month, and day
-            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
-
-            // Extract HHmm as float
-            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
-
-            return result;
-        }
+       
 
 
 

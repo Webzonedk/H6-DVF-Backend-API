@@ -6,7 +6,7 @@
     public class HistoricWeatherDataToFileDto
 
     {
-        public int id { get; set; }
+        public long Id { get; set; }
         public float Latitude { get; set; }
         public float Longitude { get; set; }
         public double Time { get; set; }
