@@ -2,10 +2,15 @@
 using DVF_API.Data.Models;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.IO.Pipes;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
 using System.Threading.Tasks.Dataflow;
 
 namespace DVF_API.Data.Repositories
@@ -200,82 +205,132 @@ namespace DVF_API.Data.Repositories
 
 
 
-
-        private async Task SaveDataAsBinaryFilesAsync(List<SaveToStorageDto> saveToFileDtoList, string baseFolder)
+        private async Task SaveDataAsBinaryFilesAsync(List<SaveToStorageDto> dataToSave, string baseDirectory)
         {
-            int maxDegreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism();
-            var options = new ExecutionDataflowBlockOptions
+            try
             {
-                MaxDegreeOfParallelism = maxDegreeOfParallelism
-            };
+                ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-            var block = new ActionBlock<SaveToStorageDto>(async dto =>
-            {
-                await SaveSingleDtoAsync(dto, baseFolder);
-            }, options);
-
-            saveToFileDtoList.ForEach(dto => block.Post(dto));
-
-            block.Complete();
-            await block.Completion;
-        }
-
-
-
-
-        private async Task SaveSingleDtoAsync(SaveToStorageDto saveToFileDto, string baseFolder)
-        {
-            var data = saveToFileDto.HistoricWeatherData;
-            var latitude = saveToFileDto.Latitude;
-            var longitude = saveToFileDto.Longitude;
-            var timeStamps = data.Hourly.Time.Select(DateTime.Parse).ToList();
-            var groupedData = timeStamps
-                                .Select((time, index) => new { Time = time, Index = index })
-                                .GroupBy(t => t.Time.ToString("yyyyMMdd"))
-                                .ToDictionary(g => g.Key, g => g.Select(x => x.Index).ToList());
-
-            foreach (var entry in groupedData)
-            {
-                DateTime entryDate = DateTime.ParseExact(entry.Key, "yyyyMMdd", CultureInfo.InvariantCulture);
-                string yearFolder = Path.Combine(baseFolder, $"{latitude}-{longitude}", entryDate.ToString("yyyy"));
-
-                if (!Directory.Exists(yearFolder))
+                Parallel.ForEach(dataToSave, data =>
                 {
-                    Directory.CreateDirectory(yearFolder);
-                }
-
-                string filePath = Path.Combine(yearFolder, $"{entryDate:MMdd}.bin");
-
-                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-                using (var binWriter = new BinaryWriter(fileStream))
-                {
-                    foreach (var index in entry.Value)
+                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
                     {
-                        binWriter.Write(ConvertDateTimeToFloat(data.Hourly.Time[index]));
-                        binWriter.Write(data.Hourly.Temperature_2m[index]);
-                        binWriter.Write(data.Hourly.Relative_Humidity_2m[index]);
-                        binWriter.Write(data.Hourly.Rain[index]);
-                        binWriter.Write(data.Hourly.Wind_Speed_10m[index]);
-                        binWriter.Write(data.Hourly.Wind_Direction_10m[index]);
-                        binWriter.Write(data.Hourly.Wind_Gusts_10m[index]);
-                        binWriter.Write(data.Hourly.Global_Tilted_Irradiance_Instant[index]);
+                        HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                        {
+                            Latitude = ConvertCoordinate(data.Latitude),
+                            Longitude = ConvertCoordinate(data.Longitude),
+                            Time = ConvertDateTimeToFloatInternal(time),
+                            Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                            Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                            Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                            Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                            Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                            Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                            Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                        };
+                        historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                    });
+                });
+
+                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
+                historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+
+                foreach (var group in groupedData)
+                {
+                    string date = group.Key[0].ToString()!; // Full date YYYYMMDD
+                    var year = date.Substring(0, 4);
+                    var monthDay = date.Substring(4, 4);
+                    var yearDirectory = Path.Combine(baseDirectory, year);
+                    Directory.CreateDirectory(yearDirectory); 
+                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+                    using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
+                    {
+                        using (var binaryWriter = new BinaryWriter(fileStream))
+                        {
+                            foreach (var groupItem in group)
+                            {
+                                binaryWriter.Write(groupItem.Latitude);
+                                binaryWriter.Write(groupItem.Longitude);
+                                binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
+                                binaryWriter.Write(groupItem.Temperature_2m);
+                                binaryWriter.Write(groupItem.Relative_Humidity_2m);
+                                binaryWriter.Write(groupItem.Rain);
+                                binaryWriter.Write(groupItem.Wind_Speed_10m);
+                                binaryWriter.Write(groupItem.Wind_Direction_10m);
+                                binaryWriter.Write(groupItem.Wind_Gusts_10m);
+                                binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+                            }
+                        }
                     }
-                    await fileStream.FlushAsync();
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred: {ex.Message}");
             }
         }
 
 
 
-
-        private float ConvertDateTimeToFloat(string time)
+        private double ConvertDateTimeToFloatInternal(string time)
         {
             DateTime parsedDateTime = DateTime.Parse(time);
-            return float.Parse(parsedDateTime.ToString("HHmm"));
+            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
+        }
+
+
+        private float ConvertCoordinate(string coordinate)
+        {
+            var normalized = coordinate.Replace(',', '.');
+            return float.Parse(normalized, CultureInfo.InvariantCulture);
+        }
+
+
+        private object[] MixedYearDateTimeSplitter(double time)
+        {
+            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
+            string timeString = time.ToString("000000000000");
+
+            // Extract year, month, and day
+            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
+
+            // Extract HHmm as float
+            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
+
+            return result;
         }
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /// <summary>
+        /// Inserts weather data into the database, using a MERGE operation to speed up the process.
+        /// </summary>
+        /// <param name="saveToStorageDtoDataList"></param>
+        /// <param name="connectionString"></param>
+        /// <returns>Returns a Task.</returns>
         private async Task InsertWeatherDataToDatabaseAsync(List<SaveToStorageDto> saveToStorageDtoDataList, string connectionString)
         {
             try

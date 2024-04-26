@@ -26,7 +26,6 @@ namespace DVF_API.Services.ServiceImplementation
         private string _longitude = "11.9639";
         private DateTime startDate = new DateTime(2024, 04, 01);
         private DateTime endDate = new DateTime(2024, 04, 01);
-        private List<SaveToStorageDto> _saveToStorageDto = new List<SaveToStorageDto>();
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
@@ -67,7 +66,7 @@ namespace DVF_API.Services.ServiceImplementation
         {
             if (_utilityManager.Authenticate(password, clientIp))
             {
-                //await CreateCitiesForRepository();
+                await CreateCitiesForRepository();
             }
         }
 
@@ -100,22 +99,21 @@ namespace DVF_API.Services.ServiceImplementation
         {
             try
             {
-                await RetreiveProcessWeatherData(_latitude, _longitude, startDate, endDate, _coordinatesFilePath);
+                List<SaveToStorageDto> saveToStorageDto = new List<SaveToStorageDto>();
 
-                List<Task> tasks = new List<Task>();
+                await RetreiveProcessWeatherData(saveToStorageDto, _latitude, _longitude, startDate, endDate, _coordinatesFilePath);
 
-                if (createFiles)
-                {
-                    var fileTask = _historicWeatherDataRepository.SaveDataToFileAsync(_saveToStorageDto, _baseDirectory);
-                    tasks.Add(fileTask);
-                }
+               
                 if (createDB)
                 {
-                    var dbTask = _historicWeatherDataRepository.SaveDataToDatabaseAsync(_saveToStorageDto);
-                    tasks.Add(dbTask);
+                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
+                 
                 }
-
-                await Task.WhenAll(tasks);
+                if (createFiles)
+                {
+                    await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
+                   
+                }
             }
             catch (Exception ex)
             {
@@ -127,7 +125,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task RetreiveProcessWeatherData(string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath)
+        private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath)
         {
             try
             {
@@ -136,18 +134,19 @@ namespace DVF_API.Services.ServiceImplementation
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                await ProcessAllCoordinates(originalWeatherDataFromAPI, coordinatesFilePath);
+                await ProcessAllCoordinates(_saveToStorageDto, originalWeatherDataFromAPI, coordinatesFilePath);
             }
             catch (Exception ex)
             {
                 // Ready for logging
             }
+            return _saveToStorageDto;
         }
 
 
 
 
-        private async Task ProcessAllCoordinates(HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath)
+        private async Task ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDto, HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath)
         {
             try
             {
@@ -164,7 +163,7 @@ namespace DVF_API.Services.ServiceImplementation
                             Latitude = parts[0],
                             Longitude = parts[1]
                         };
-                        _saveToStorageDto.Add(saveToFileDto);
+                        saveToStorageDto.Add(saveToFileDto);
                     }
                 }
             }
