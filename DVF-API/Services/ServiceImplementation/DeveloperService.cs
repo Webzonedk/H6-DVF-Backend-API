@@ -119,6 +119,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 if (createFiles)
                 {
+                    MapDataSaveToStorageDtoToByteArray(saveToStorageDto);
                     await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
 
                 }
@@ -134,27 +135,48 @@ namespace DVF_API.Services.ServiceImplementation
         {
             ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-            Parallel.ForEach(_saveToStorageDto, data =>
+            try
             {
-                for (int i = 0; i < data.HistoricWeatherData.Hourly.Time.Length; i++)
+                Parallel.ForEach(_saveToStorageDto, data =>
                 {
-                    HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
-                    {
-                        Id = data.LocationId,
-                        Latitude = ConvertCoordinate(data.Latitude),
-                        Longitude = ConvertCoordinate(data.Longitude),
-                        Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[i]),
-                        Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[i],
-                        Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[i],
-                        Rain = data.HistoricWeatherData.Hourly.Rain[i],
-                        Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[i],
-                        Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[i],
-                        Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[i],
-                        Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[i]
-                    };
-                    historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
-                }
-            });
+                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
+                        {
+                            try
+                            {
+                                HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                                {
+                                    Id = data.LocationId,
+                                    Latitude = ConvertCoordinate(data.Latitude),
+                                    Longitude = ConvertCoordinate(data.Longitude),
+                                    Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+                                    Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                                    Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                                    Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                                    Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                                    Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                                    Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                                    Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                                };
+                                historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine(ex.Message);
+
+                            }
+
+                        });
+
+                    var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"{ex.Message}");
+
+            }
+
+
 
             return null;
         }

@@ -207,48 +207,48 @@ namespace DVF_API.Data.Repositories
 
         private async Task SaveDataAsBinaryFilesAsync(List<SaveToStorageDto> dataToSave, string baseDirectory)
         {
-            try
-            {
+            //try
+            //{
                
 
-                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
-                historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+            //    var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
+            //    historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-                foreach (var group in groupedData)
-                {
-                    string date = group.Key[0].ToString()!; // Full date YYYYMMDD
-                    var year = date.Substring(0, 4);
-                    var monthDay = date.Substring(4, 4);
-                    var yearDirectory = Path.Combine(baseDirectory, year);
-                    Directory.CreateDirectory(yearDirectory); 
-                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+            //    foreach (var group in groupedData)
+            //    {
+            //        string date = group.Key[0].ToString()!; // Full date YYYYMMDD
+            //        var year = date.Substring(0, 4);
+            //        var monthDay = date.Substring(4, 4);
+            //        var yearDirectory = Path.Combine(baseDirectory, year);
+            //        Directory.CreateDirectory(yearDirectory); 
+            //        var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
 
-                    using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
-                    {
-                        using (var binaryWriter = new BinaryWriter(fileStream))
-                        {
-                            foreach (var groupItem in group)
-                            {
-                                binaryWriter.Write(groupItem.Latitude);
-                                binaryWriter.Write(groupItem.Longitude);
-                                binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
-                                binaryWriter.Write(groupItem.Temperature_2m);
-                                binaryWriter.Write(groupItem.Relative_Humidity_2m);
-                                binaryWriter.Write(groupItem.Rain);
-                                binaryWriter.Write(groupItem.Wind_Speed_10m);
-                                binaryWriter.Write(groupItem.Wind_Direction_10m);
-                                binaryWriter.Write(groupItem.Wind_Gusts_10m);
-                                binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+            //        using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
+            //        {
+            //            using (var binaryWriter = new BinaryWriter(fileStream))
+            //            {
+            //                foreach (var groupItem in group)
+            //                {
+            //                    binaryWriter.Write(groupItem.Latitude);
+            //                    binaryWriter.Write(groupItem.Longitude);
+            //                    binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
+            //                    binaryWriter.Write(groupItem.Temperature_2m);
+            //                    binaryWriter.Write(groupItem.Relative_Humidity_2m);
+            //                    binaryWriter.Write(groupItem.Rain);
+            //                    binaryWriter.Write(groupItem.Wind_Speed_10m);
+            //                    binaryWriter.Write(groupItem.Wind_Direction_10m);
+            //                    binaryWriter.Write(groupItem.Wind_Gusts_10m);
+            //                    binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
 
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
-            }
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    Debug.WriteLine($"An error occurred: {ex.Message}");
+            //}
         }
 
 
