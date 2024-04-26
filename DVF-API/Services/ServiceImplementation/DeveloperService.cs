@@ -172,14 +172,35 @@ namespace DVF_API.Services.ServiceImplementation
 
                 //Vi mangler at gruppere ud fra dato Vi mangler årstal og dato struktur for at kunne lave filerne mindre og smide dem afsted løbende.
 
-                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
+                //  var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)).ToList();
+                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)).Select(group =>
+                {
+                    var orderedList = group.OrderBy(dto => dto.Time).ToList();
+                    return orderedList;
+                })
+      .ToList();
                 historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
                 foreach (var group in groupedData)
                 {
 
-                    var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
-                    return ConvertModelToBytesArray(orderedList);
+                    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                    var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
+                    orderedList.Clear();
+
+
+
+
+                    var date = MixedYearDateTimeSplitter(group[0].Time).ToString();// Full date YYYYMMDD
+                    var year = date.Substring(0, 4);
+                    var monthDay = date.Substring(4, 4);
+                    var yearDirectory = Path.Combine(_baseDirectory, year);
+                    Directory.CreateDirectory(yearDirectory);
+                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+
+                    Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
+                    // _historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
                 }
             }
             catch (Exception ex)
@@ -192,14 +213,35 @@ namespace DVF_API.Services.ServiceImplementation
 
         private byte[] ConvertModelToBytesArray(List<HistoricWeatherDataToFileDto> orderedList)
         {
+
             using (var memoryStream = new MemoryStream())
             {
-                //var options = new JsonSerializerOptions { WriteIndented = true };
-                //using (var writer = new Utf8JsonWriter(memoryStream, options))
-                //{
-                //    JsonSerializer.Serialize(writer, orderedList);
-                //}
-                orderedList.Clear();
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    using (BinaryWriter binaryWriter = new BinaryWriter(stream))
+                    {
+                        foreach (var groupItem in orderedList)
+                        {
+                            binaryWriter.Write(groupItem.Id);
+                            binaryWriter.Write(groupItem.Latitude);
+                            binaryWriter.Write(groupItem.Longitude);
+                            binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
+                            binaryWriter.Write(groupItem.Temperature_2m);
+                            binaryWriter.Write(groupItem.Relative_Humidity_2m);
+                            binaryWriter.Write(groupItem.Rain);
+                            binaryWriter.Write(groupItem.Wind_Speed_10m);
+                            binaryWriter.Write(groupItem.Wind_Direction_10m);
+                            binaryWriter.Write(groupItem.Wind_Gusts_10m);
+                            binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+
+                        }
+
+                    }
+
+                    // Return the byte array
+                    return stream.ToArray();
+                }
+
                 return memoryStream.ToArray();
             }
         }
