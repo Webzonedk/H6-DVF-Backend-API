@@ -220,11 +220,11 @@ namespace DVF_API.Data.Repositories
         /// <param name="fromIndex"></param>
         /// <param name="toIndex"></param>
         /// <returns></returns>
-        public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<Dictionary<int, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
         {
             return await GetLocationCoordinates(fromIndex, toIndex);
         }
-        private async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        private async Task<Dictionary<int,string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             try
             {
@@ -240,15 +240,18 @@ namespace DVF_API.Data.Repositories
                 try
                 {
                     var result = await command.ExecuteReaderAsync();
-                    List<string> coordinates = new List<string>();
+                    Dictionary<int,string> coordinates = new Dictionary<int,string>();
 
                     while (await result.ReadAsync())
                     {
                         string latitude = result["Latitude"].ToString();
                         string longitude = result["Longitude"].ToString();
+                        int idIndex = result.GetOrdinal("locationId");
+                        int id = result.GetInt32(idIndex);
+
 
                         string coordinate = $"{latitude}-{longitude}";
-                        coordinates.Add(coordinate);
+                        coordinates.Add(id,coordinate);
                     }
                     return coordinates;
                 }

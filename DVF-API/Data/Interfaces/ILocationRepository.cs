@@ -6,7 +6,7 @@ namespace DVF_API.Data.Interfaces
     {
         Task<List<string>> FetchMatchingAddresses(string partialAddress);
         Task<int> FetchLocationCount();
-        Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex);
+        Task<Dictionary<int, string>> FetchLocationCoordinates(int fromIndex, int toIndex);
         Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> coordinates);
     }
 }

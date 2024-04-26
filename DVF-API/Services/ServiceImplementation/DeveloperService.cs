@@ -32,6 +32,7 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly IUtilityManager _utilityManager;
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
+        private readonly ILocationRepository _locationRepository;
         #endregion
 
 
@@ -39,12 +40,13 @@ namespace DVF_API.Services.ServiceImplementation
 
         #region Constructors
 
-        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
+        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository, ILocationRepository locationRepository)
         {
             _historicWeatherDataRepository = historicWeatherDataRepository;
             _utilityManager = utilityManager;
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;
+            _locationRepository = locationRepository;
         }
         #endregion
 
@@ -101,18 +103,23 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 List<SaveToStorageDto> saveToStorageDto = new List<SaveToStorageDto>();
 
-                await RetreiveProcessWeatherData(saveToStorageDto, _latitude, _longitude, startDate, endDate, _coordinatesFilePath);
+                Dictionary<int, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
+                await RetreiveProcessWeatherData(saveToStorageDto, _latitude, _longitude, startDate, endDate, _coordinatesFilePath, locationCoordinatesWithId);
 
-               
+                if (saveToStorageDto == null)
+                {
+                    return;
+                }
+
                 if (createDB)
                 {
                     await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
-                 
+
                 }
                 if (createFiles)
                 {
                     await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
-                   
+
                 }
             }
             catch (Exception ex)
@@ -125,7 +132,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath)
+        private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)
         {
             try
             {
@@ -134,7 +141,17 @@ namespace DVF_API.Services.ServiceImplementation
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                await ProcessAllCoordinates(_saveToStorageDto, originalWeatherDataFromAPI, coordinatesFilePath);
+
+                if (originalWeatherDataFromAPI != null)
+                {
+                    ProcessAllCoordinates(_saveToStorageDto, originalWeatherDataFromAPI, coordinatesFilePath, locationCoordinatesWithId);
+
+                }
+                else
+                {
+
+                    return _saveToStorageDto = new List<SaveToStorageDto>();
+                }
             }
             catch (Exception ex)
             {
@@ -146,13 +163,13 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDto, HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath)
+        private void ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDto, HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)
         {
             try
             {
-                await foreach (var coordinate in ReadCoordinatesAsync(coordinatesFilePath))
+                foreach (KeyValuePair<int, string> keyValuePair in locationCoordinatesWithId)
                 {
-                    string[] parts = coordinate.Split('-');
+                    string[] parts = keyValuePair.Value.Split('-');
 
                     HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
                     if (modifiedData != null)
@@ -161,7 +178,8 @@ namespace DVF_API.Services.ServiceImplementation
                         {
                             HistoricWeatherData = modifiedData,
                             Latitude = parts[0],
-                            Longitude = parts[1]
+                            Longitude = parts[1],
+                            LocationId = keyValuePair.Key
                         };
                         saveToStorageDto.Add(saveToFileDto);
                     }

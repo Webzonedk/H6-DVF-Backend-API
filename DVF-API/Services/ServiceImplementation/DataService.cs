@@ -53,7 +53,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<Dictionary<int, string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
         }
