@@ -159,7 +159,7 @@ namespace DVF_API.Domain.BusinessLogic
         {
             //string jsonString = JsonSerializer.Serialize(obj);
             //return Encoding.UTF8.GetBytes(jsonString).Length;
-
+            
             byte[] jsonBytes = JsonSerializer.SerializeToUtf8Bytes(obj);
             return jsonBytes.Length;
         }

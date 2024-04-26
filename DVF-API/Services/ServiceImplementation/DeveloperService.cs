@@ -6,7 +6,9 @@ using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -120,7 +122,7 @@ namespace DVF_API.Services.ServiceImplementation
                 if (createFiles)
                 {
                     MapDataSaveToStorageDtoToByteArray(saveToStorageDto);
-                    await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
+                    // await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
 
                 }
             }
@@ -132,7 +134,7 @@ namespace DVF_API.Services.ServiceImplementation
         }
 
 
-        private List<byte[]> MapDataSaveToStorageDtoToByteArray(List<SaveToStorageDto> _saveToStorageDto)
+        private byte[] MapDataSaveToStorageDtoToByteArray(List<SaveToStorageDto> _saveToStorageDto)
         {
             ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
@@ -168,16 +170,23 @@ namespace DVF_API.Services.ServiceImplementation
                 });
 
                 var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                return ConvertModelToBytesArray(orderedList);
+
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"{ex.Message}");
             }
-
             return null;
         }
 
-      
+        private byte[] ConvertModelToBytesArray(List<HistoricWeatherDataToFileDto> orderedList)
+        {
+            string tempJsonString = JsonSerializer.Serialize(orderedList);
+            byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(tempJsonString);
+            orderedList.Clear();
+            return byteArray;
+        }
 
         private double ConvertDateTimeToFloatInternal(string time)
         {
