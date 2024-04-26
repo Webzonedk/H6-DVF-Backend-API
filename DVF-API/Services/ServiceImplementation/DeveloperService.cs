@@ -131,6 +131,7 @@ namespace DVF_API.Services.ServiceImplementation
 
         }
 
+
         private List<byte[]> MapDataSaveToStorageDtoToByteArray(List<SaveToStorageDto> _saveToStorageDto)
         {
             ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
@@ -139,47 +140,44 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 Parallel.ForEach(_saveToStorageDto, data =>
                 {
-                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
+                    for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
+                    {
+                        try
                         {
-                            try
+                            HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
                             {
-                                HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
-                                {
-                                    Id = data.LocationId,
-                                    Latitude = ConvertCoordinate(data.Latitude),
-                                    Longitude = ConvertCoordinate(data.Longitude),
-                                    Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
-                                    Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
-                                    Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
-                                    Rain = data.HistoricWeatherData.Hourly.Rain[index],
-                                    Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
-                                    Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
-                                    Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
-                                    Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
-                                };
-                                historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine(ex.Message);
-
-                            }
-
-                        });
-
-                    var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                                Id = data.LocationId,
+                                Latitude = ConvertCoordinate(data.Latitude),
+                                Longitude = ConvertCoordinate(data.Longitude),
+                                Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+                                Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                                Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                                Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                                Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                                Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                                Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                                Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                            };
+                            historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"{ex.Message}");
+                        }
+                    }
                 });
+
+                var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"{ex.Message}");
-
             }
-
-
 
             return null;
         }
+
+      
 
         private double ConvertDateTimeToFloatInternal(string time)
         {
