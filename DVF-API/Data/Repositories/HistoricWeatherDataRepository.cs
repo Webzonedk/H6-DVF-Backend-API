@@ -260,6 +260,7 @@ namespace DVF_API.Data.Repositories
                                 binaryWriter.Write(groupItem.Wind_Direction_10m);
                                 binaryWriter.Write(groupItem.Wind_Gusts_10m);
                                 binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+
                             }
                         }
                     }
