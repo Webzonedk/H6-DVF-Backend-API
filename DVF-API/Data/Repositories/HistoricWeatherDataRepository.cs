@@ -205,57 +205,103 @@ namespace DVF_API.Data.Repositories
 
 
 
+
+
         private async Task SaveDataAsBinaryFilesAsync(List<SaveToStorageDto> dataToSave, string baseDirectory)
         {
-            //try
-            //{
-               
+            try
+            {
+                ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-            //    var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
-            //    historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+                Parallel.ForEach(dataToSave, data =>
+                {
+                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
+                    {
+                        HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                        {
+                            Latitude = ConvertCoordinate(data.Latitude),
+                            Longitude = ConvertCoordinate(data.Longitude),
+                            Time = ConvertDateTimeToFloatInternal(time),
+                            Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                            Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                            Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                            Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                            Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                            Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                            Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                        };
+                        historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                    });
+                });
 
-            //    foreach (var group in groupedData)
-            //    {
-            //        string date = group.Key[0].ToString()!; // Full date YYYYMMDD
-            //        var year = date.Substring(0, 4);
-            //        var monthDay = date.Substring(4, 4);
-            //        var yearDirectory = Path.Combine(baseDirectory, year);
-            //        Directory.CreateDirectory(yearDirectory); 
-            //        var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
+                historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-            //        using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
-            //        {
-            //            using (var binaryWriter = new BinaryWriter(fileStream))
-            //            {
-            //                foreach (var groupItem in group)
-            //                {
-            //                    binaryWriter.Write(groupItem.Latitude);
-            //                    binaryWriter.Write(groupItem.Longitude);
-            //                    binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
-            //                    binaryWriter.Write(groupItem.Temperature_2m);
-            //                    binaryWriter.Write(groupItem.Relative_Humidity_2m);
-            //                    binaryWriter.Write(groupItem.Rain);
-            //                    binaryWriter.Write(groupItem.Wind_Speed_10m);
-            //                    binaryWriter.Write(groupItem.Wind_Direction_10m);
-            //                    binaryWriter.Write(groupItem.Wind_Gusts_10m);
-            //                    binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+                foreach (var group in groupedData)
+                {
+                    string date = group.Key[0].ToString()!; // Full date YYYYMMDD
+                    var year = date.Substring(0, 4);
+                    var monthDay = date.Substring(4, 4);
+                    var yearDirectory = Path.Combine(baseDirectory, year);
+                    Directory.CreateDirectory(yearDirectory);
+                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
 
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    Debug.WriteLine($"An error occurred: {ex.Message}");
-            //}
+                    using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
+                    {
+                        using (var binaryWriter = new BinaryWriter(fileStream))
+                        {
+                            foreach (var groupItem in group)
+                            {
+                                binaryWriter.Write(groupItem.Latitude);
+                                binaryWriter.Write(groupItem.Longitude);
+                                binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
+                                binaryWriter.Write(groupItem.Temperature_2m);
+                                binaryWriter.Write(groupItem.Relative_Humidity_2m);
+                                binaryWriter.Write(groupItem.Rain);
+                                binaryWriter.Write(groupItem.Wind_Speed_10m);
+                                binaryWriter.Write(groupItem.Wind_Direction_10m);
+                                binaryWriter.Write(groupItem.Wind_Gusts_10m);
+                                binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred: {ex.Message}");
+            }
         }
 
 
 
-       
+        private double ConvertDateTimeToFloatInternal(string time)
+        {
+            DateTime parsedDateTime = DateTime.Parse(time);
+            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
+        }
 
 
+        private float ConvertCoordinate(string coordinate)
+        {
+            var normalized = coordinate.Replace(',', '.');
+            return float.Parse(normalized, CultureInfo.InvariantCulture);
+        }
+
+
+        private object[] MixedYearDateTimeSplitter(double time)
+        {
+            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
+            string timeString = time.ToString("000000000000");
+
+            // Extract year, month, and day
+            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
+
+            // Extract HHmm as float
+            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
+
+            return result;
+        }
 
 
 

@@ -121,7 +121,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 if (createFiles)
                 {
-                    MapDataSaveToStorageDtoToByteArray(saveToStorageDto);
+                   var result = MapDataSaveToStorageDtoToByteArray(saveToStorageDto);
                     // await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
 
                 }
@@ -138,54 +138,67 @@ namespace DVF_API.Services.ServiceImplementation
         {
             ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-            try
+            var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
+            historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+
+            foreach (var group in groupedData)
             {
-                Parallel.ForEach(_saveToStorageDto, data =>
+                try
                 {
-                    for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
+                    Parallel.ForEach(_saveToStorageDto, data =>
                     {
-                        try
+                        for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
                         {
-                            HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                            try
                             {
-                                Id = data.LocationId,
-                                Latitude = ConvertCoordinate(data.Latitude),
-                                Longitude = ConvertCoordinate(data.Longitude),
-                                Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
-                                Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
-                                Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
-                                Rain = data.HistoricWeatherData.Hourly.Rain[index],
-                                Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
-                                Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
-                                Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
-                                Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
-                            };
-                            historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                                HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                                {
+                                    Id = data.LocationId,
+                                    Latitude = ConvertCoordinate(data.Latitude),
+                                    Longitude = ConvertCoordinate(data.Longitude),
+                                    Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+                                    Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                                    Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                                    Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                                    Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                                    Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                                    Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                                    Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                                };
+                                historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"{ex.Message}");
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"{ex.Message}");
-                        }
-                    }
-                });
+                    });
+                    //Vi mangler at gruppere ud fra dato Vi mangler årstal og dato struktur for at kunne lave filerne mindre og smide dem afsted løbende.
 
-                var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
-                return ConvertModelToBytesArray(orderedList);
+                    var orderedList = historicWeatherDataToFileDtos.OrderBy(x => x.Id).ThenBy(x => x.Time).ToList();
+                    return ConvertModelToBytesArray(orderedList);
 
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"{ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"{ex.Message}");
+                }
             }
             return null;
         }
 
         private byte[] ConvertModelToBytesArray(List<HistoricWeatherDataToFileDto> orderedList)
         {
-            string tempJsonString = JsonSerializer.Serialize(orderedList);
-            byte[] byteArray = System.Text.Encoding.UTF8.GetBytes(tempJsonString);
-            orderedList.Clear();
-            return byteArray;
+            using (var memoryStream = new MemoryStream())
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                using (var writer = new Utf8JsonWriter(memoryStream, options))
+                {
+                    JsonSerializer.Serialize(writer, orderedList);
+                }
+                orderedList.Clear();
+                return memoryStream.ToArray();
+            }
         }
 
         private double ConvertDateTimeToFloatInternal(string time)
