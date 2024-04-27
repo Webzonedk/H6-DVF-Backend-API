@@ -6,6 +6,7 @@ using DVF_API.SharedLib.Dtos;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 
 namespace DVF_API.Services.ServiceImplementation
 {
@@ -131,29 +132,54 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
                 long currentBytes = _utilityManager.BeginMeasureMemory();
                 List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                List<BinarySearchInFilesDto> binarySearchInFilesDtos = new List<BinarySearchInFilesDto>();
 
+                try
+                {
+                    for (int i = 0; i < dateList.Count; i++)
+                    {
 
-                for (int i = 0; i < dateList.Count;)
+                        double yearDate = _utilityManager.ConvertDateTimeToFloatInternal(dateList[i].ToString());
+                        var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
+                        var year = fullDate.Substring(0, 4);
+                        var monthDay = fullDate.Substring(4, 4);
+                        var directory = Path.Combine(_baseDirectory, year);
+                        var fileName = Path.Combine(directory, $"{monthDay}.bin");
+                        BinarySearchInFilesDto binaryDataFromFileDto = new BinarySearchInFilesDto();
+
+                        try
+                        {
+                            for (int j = 0; j < listOfBinaryDataFromFileDto.Count; j++)
+                            {
+
+                                binaryDataFromFileDto.FilePath = fileName;
+                                binaryDataFromFileDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
+                                binaryDataFromFileDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
+
+                                binarySearchInFilesDtos.Add(binaryDataFromFileDto);
+
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.WriteLine($"inner loop: {e}");
+
+                        }
+
+                    }
+                }
+                catch (Exception e)
                 {
 
-                    double yearDate = _utilityManager.ConvertDateTimeToFloatInternal(dateList[i].ToString());
-                    var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
-                    var year = fullDate.Substring(0, 4);
-                    var monthDay = fullDate.Substring(4, 4);
-                    var directory = Path.Combine(_baseDirectory, year);
-                    var fileName = Path.Combine(directory, $"{monthDay}.bin");
-                    var result = await _crudFileRepository.FetchWeatherDataAsync()
-                    List < BinaryDataFromFileDto >> ReadWeatherDataAsync
-                }
-               
-
-                //todo add logic to calculate how many blocks of bytes to get
-                foreach (var location in listOfBinaryDataFromFileDto)
-                {
-                    
+                    Debug.WriteLine($"outer loop: {e}");
                 }
 
-                 listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
+
+
+                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
+
+
+                //  listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
 
 
                 // return recorded CPU usage and memory usage

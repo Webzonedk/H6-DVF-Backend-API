@@ -108,7 +108,7 @@ namespace DVF_API.Data.Repositories
             //        }
             //    }
             //}
-            return binaryDataFromFileDtos;
+            return new List<BinaryDataFromFileDto>();
         }
 
 
