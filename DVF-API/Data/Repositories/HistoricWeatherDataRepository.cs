@@ -2,16 +2,10 @@
 using DVF_API.Data.Models;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
-using System.Collections.Concurrent;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.IO.Pipes;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Threading;
-using System.Threading.Tasks.Dataflow;
 
 namespace DVF_API.Data.Repositories
 {
@@ -32,11 +26,14 @@ namespace DVF_API.Data.Repositories
         #endregion
 
 
-        
 
-        public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
+
+        public void SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
-            await SaveDataAsBinaryFilesAsync(fileName, byteArrayToSaveToFile);
+            Task.Run(() =>
+            {
+                SaveDataAsBinaryFiles(fileName, byteArrayToSaveToFile);
+            });
         }
 
 
@@ -207,16 +204,18 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryFilesAsync(string fileName, byte[] byteArrayToSaveToFile)
+        private void SaveDataAsBinaryFiles(string fileName, byte[] byteArrayToSaveToFile)
         {
+
             try
             {
-              await File.WriteAllBytesAsync(fileName, byteArrayToSaveToFile);
+                File.WriteAllBytes(fileName, byteArrayToSaveToFile);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
+                Debug.WriteLine($"A File writer error occurred: {ex.Message}");
             }
+
         }
 
 
