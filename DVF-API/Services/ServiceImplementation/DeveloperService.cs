@@ -193,7 +193,7 @@ namespace DVF_API.Services.ServiceImplementation
 
                     Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
                     
-                    _historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                    _historicWeatherDataRepository.SaveDataToFileAsync(fileName, byteArrayToSaveToFile);
                     listGroupedData.RemoveAt(i--);
                     GC.Collect();
                 }

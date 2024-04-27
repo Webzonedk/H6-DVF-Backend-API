@@ -34,9 +34,9 @@ namespace DVF_API.Data.Repositories
 
         
 
-        public async Task SaveDataToFileAsync(List<SaveToStorageDto> saveToStorageDtoList, string baseFolder)
+        public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
-            await SaveDataAsBinaryFilesAsync(saveToStorageDtoList, baseFolder);
+            await SaveDataAsBinaryFilesAsync(fileName, byteArrayToSaveToFile);
         }
 
 
@@ -207,65 +207,11 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryFilesAsync(List<SaveToStorageDto> dataToSave, string baseDirectory)
+        private async Task SaveDataAsBinaryFilesAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
             try
             {
-                ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
-
-                Parallel.ForEach(dataToSave, data =>
-                {
-                    Parallel.ForEach(data.HistoricWeatherData.Hourly.Time, (time, _, index) =>
-                    {
-                        HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
-                        {
-                            Latitude = ConvertCoordinate(data.Latitude),
-                            Longitude = ConvertCoordinate(data.Longitude),
-                            Time = ConvertDateTimeToFloatInternal(time),
-                            Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
-                            Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
-                            Rain = data.HistoricWeatherData.Hourly.Rain[index],
-                            Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
-                            Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
-                            Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
-                            Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
-                        };
-                        historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
-                    });
-                });
-
-                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time));
-                historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
-
-                foreach (var group in groupedData)
-                {
-                    string date = group.Key[0].ToString()!; // Full date YYYYMMDD
-                    var year = date.Substring(0, 4);
-                    var monthDay = date.Substring(4, 4);
-                    var yearDirectory = Path.Combine(baseDirectory, year);
-                    Directory.CreateDirectory(yearDirectory);
-                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
-
-                    using (var fileStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.None, 4096, true))
-                    {
-                        using (var binaryWriter = new BinaryWriter(fileStream))
-                        {
-                            foreach (var groupItem in group)
-                            {
-                                binaryWriter.Write(groupItem.Latitude);
-                                binaryWriter.Write(groupItem.Longitude);
-                                binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
-                                binaryWriter.Write(groupItem.Temperature_2m);
-                                binaryWriter.Write(groupItem.Relative_Humidity_2m);
-                                binaryWriter.Write(groupItem.Rain);
-                                binaryWriter.Write(groupItem.Wind_Speed_10m);
-                                binaryWriter.Write(groupItem.Wind_Direction_10m);
-                                binaryWriter.Write(groupItem.Wind_Gusts_10m);
-                                binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
-                            }
-                        }
-                    }
-                }
+                File.WriteAllBytes(fileName, byteArrayToSaveToFile);
             }
             catch (Exception ex)
             {
