@@ -192,30 +192,11 @@ namespace DVF_API.Services.ServiceImplementation
                     
 
                     Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
-                    //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                    
+                    _historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
                     listGroupedData.RemoveAt(i--);
+                    GC.Collect();
                 }
-              
-                //foreach (var group in groupedData)
-                //{
-
-                //    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
-                //    var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
-                //    orderedList.Clear();
-
-
-                //    string date = MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
-                //    var year = date.Substring(0, 4);
-                //    var monthDay = date.Substring(4, 4);
-                //    var yearDirectory = Path.Combine(_baseDirectory, year);
-                //    Directory.CreateDirectory(yearDirectory);
-                //    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
-
-
-                //    Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
-                //     //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
-                     
-                //}
             }
             catch (Exception ex)
             {
@@ -520,5 +501,99 @@ namespace DVF_API.Services.ServiceImplementation
                 //ready for logging
             }
         }
+
+
+
+
+        //private byte[] MapDataSaveToStorageDtoToByteArray(List<SaveToStorageDto> _saveToStorageDto)
+        //{
+        //    ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+
+
+        //    try
+        //    {
+        //        Parallel.ForEach(_saveToStorageDto, data =>
+        //        {
+        //            for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
+        //            {
+        //                try
+        //                {
+        //                    HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+        //                    {
+        //                        Id = data.LocationId,
+        //                        Latitude = ConvertCoordinate(data.Latitude),
+        //                        Longitude = ConvertCoordinate(data.Longitude),
+        //                        Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+        //                        Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+        //                        Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+        //                        Rain = data.HistoricWeatherData.Hourly.Rain[index],
+        //                        Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+        //                        Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+        //                        Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+        //                        Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+        //                    };
+        //                    historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    Debug.WriteLine($"{ex.Message}");
+        //                }
+        //            }
+        //        });
+
+        //        //Vi mangler at gruppere ud fra dato Vi mangler årstal og dato struktur for at kunne lave filerne mindre og smide dem afsted løbende.
+
+        //        var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)[0]);
+        //        historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+
+        //        var listGroupedData = groupedData.ToList();
+        //        groupedData = null;
+        //        for (int i = 0; i < listGroupedData.Count; i++)
+        //        {
+        //            var orderedList = listGroupedData[i].OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
+        //            var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
+        //            orderedList.Clear();
+
+        //            string date = MixedYearDateTimeSplitter(listGroupedData[i].First().Time)[0].ToString()!; // Full date YYYYMMDD
+        //            var year = date.Substring(0, 4);
+        //            var monthDay = date.Substring(4, 4);
+        //            var yearDirectory = Path.Combine(_baseDirectory, year);
+        //            Directory.CreateDirectory(yearDirectory);
+        //            var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+
+        //            Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
+        //            //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+        //            listGroupedData.RemoveAt(i--);
+        //        }
+
+        //        //foreach (var group in groupedData)
+        //        //{
+
+        //        //    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
+        //        //    var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
+        //        //    orderedList.Clear();
+
+
+        //        //    string date = MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
+        //        //    var year = date.Substring(0, 4);
+        //        //    var monthDay = date.Substring(4, 4);
+        //        //    var yearDirectory = Path.Combine(_baseDirectory, year);
+        //        //    Directory.CreateDirectory(yearDirectory);
+        //        //    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+
+        //        //    Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
+        //        //     //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+
+        //        //}
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"{ex.Message}");
+        //    }
+
+        //    return null;
+        //}
     }
 }
