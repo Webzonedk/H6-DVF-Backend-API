@@ -29,9 +29,9 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToFileAsync(List<SaveToStorageDto> saveToStorageDtoList, string baseFolder)
+        public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
-            await SaveDataAsBinaryFilesAsync(saveToStorageDtoList, baseFolder);
+            //await SaveDataAsBinaryFilesAsync(saveToStorageDtoList, baseFolder);
         }
 
 
