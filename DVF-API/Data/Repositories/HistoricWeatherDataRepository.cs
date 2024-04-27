@@ -28,12 +28,10 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public void SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
+        public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
-            Task.Run(() =>
-            {
-                SaveDataAsBinaryFiles(fileName, byteArrayToSaveToFile);
-            });
+            await SaveDataAsBinaryFilesAsync(fileName, byteArrayToSaveToFile);
+           
         }
 
 
@@ -204,12 +202,12 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private void SaveDataAsBinaryFiles(string fileName, byte[] byteArrayToSaveToFile)
+        private async Task SaveDataAsBinaryFilesAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
 
             try
             {
-                File.WriteAllBytes(fileName, byteArrayToSaveToFile);
+               await File.WriteAllBytesAsync(fileName, byteArrayToSaveToFile);
             }
             catch (Exception ex)
             {
