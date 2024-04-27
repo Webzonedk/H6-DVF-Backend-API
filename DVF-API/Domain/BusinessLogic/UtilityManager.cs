@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text.Json;
 using System.Text;
+using System.Globalization;
 
 namespace DVF_API.Domain.BusinessLogic
 {
@@ -290,6 +291,34 @@ namespace DVF_API.Domain.BusinessLogic
             // var privateMem = Process.GetCurrentProcess().PrivateMemorySize64;
             // Calculate the difference in RAM usage
             return (int)ramUsageAfterBytes - (int)ramUsageBeforeBytes;
+        }
+
+        public double ConvertDateTimeToFloatInternal(string time)
+        {
+            DateTime parsedDateTime = DateTime.Parse(time);
+            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
+        }
+
+
+        public float ConvertCoordinate(string coordinate)
+        {
+            var normalized = coordinate.Replace(',', '.');
+            return float.Parse(normalized, CultureInfo.InvariantCulture);
+        }
+
+
+        public object[] MixedYearDateTimeSplitter(double time)
+        {
+            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
+            string timeString = time.ToString("000000000000");
+
+            // Extract year, month, and day
+            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
+
+            // Extract HHmm as float
+            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
+
+            return result;
         }
     }
 }

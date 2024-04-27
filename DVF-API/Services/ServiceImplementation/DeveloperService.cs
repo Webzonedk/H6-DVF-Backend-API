@@ -150,9 +150,9 @@ namespace DVF_API.Services.ServiceImplementation
                             HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
                             {
                                 Id = data.LocationId,
-                                Latitude = ConvertCoordinate(data.Latitude),
-                                Longitude = ConvertCoordinate(data.Longitude),
-                                Time = ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+                                Latitude =_utilityManager.ConvertCoordinate(data.Latitude),
+                                Longitude = _utilityManager.ConvertCoordinate(data.Longitude),
+                                Time = _utilityManager.ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
                                 Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
                                 Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
                                 Rain = data.HistoricWeatherData.Hourly.Rain[index],
@@ -172,18 +172,18 @@ namespace DVF_API.Services.ServiceImplementation
 
                 //Vi mangler at gruppere ud fra dato Vi mangler årstal og dato struktur for at kunne lave filerne mindre og smide dem afsted løbende.
 
-                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)[0]);
+                var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => _utilityManager.MixedYearDateTimeSplitter(dto.Time)[0]);
                 historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
                 var listGroupedData = groupedData.ToList();
                 groupedData = null;
                 for (int i = 0; i < listGroupedData.Count; i++)
                 {
-                    var orderedList = listGroupedData[i].OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
+                    var orderedList = listGroupedData[i].OrderBy(x => x.Id).ThenBy(x => _utilityManager.MixedYearDateTimeSplitter(x.Time)[1]).ToList();
                     var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
                     orderedList.Clear();
 
-                    string date = MixedYearDateTimeSplitter(listGroupedData[i].First().Time)[0].ToString()!; // Full date YYYYMMDD
+                    string date = _utilityManager.MixedYearDateTimeSplitter(listGroupedData[i].First().Time)[0].ToString()!; // Full date YYYYMMDD
                     var year = date.Substring(0, 4);
                     var monthDay = date.Substring(4, 4);
                     var yearDirectory = Path.Combine(_baseDirectory, year);
@@ -220,7 +220,7 @@ namespace DVF_API.Services.ServiceImplementation
                             binaryWriter.Write(groupItem.Id);
                             binaryWriter.Write(groupItem.Latitude);
                             binaryWriter.Write(groupItem.Longitude);
-                            binaryWriter.Write((float)MixedYearDateTimeSplitter(groupItem.Time)[1]);
+                            binaryWriter.Write((float)_utilityManager.MixedYearDateTimeSplitter(groupItem.Time)[1]);
                             binaryWriter.Write(groupItem.Temperature_2m);
                             binaryWriter.Write(groupItem.Relative_Humidity_2m);
                             binaryWriter.Write(groupItem.Rain);
@@ -235,33 +235,7 @@ namespace DVF_API.Services.ServiceImplementation
             }
         }
 
-        private double ConvertDateTimeToFloatInternal(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
-        }
-
-
-        private float ConvertCoordinate(string coordinate)
-        {
-            var normalized = coordinate.Replace(',', '.');
-            return float.Parse(normalized, CultureInfo.InvariantCulture);
-        }
-
-
-        private object[] MixedYearDateTimeSplitter(double time)
-        {
-            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
-            string timeString = time.ToString("000000000000");
-
-            // Extract year, month, and day
-            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
-
-            // Extract HHmm as float
-            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
-
-            return result;
-        }
+       
 
 
         private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)

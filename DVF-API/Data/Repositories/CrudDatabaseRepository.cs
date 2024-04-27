@@ -433,18 +433,18 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="BinaryData"></param>
         /// <returns></returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(SearchDto searchDto)
         {
-            return await GetAddressByCoordinates(BinaryData);
+            return await GetAddressByCoordinates(searchDto);
         }
-        private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(SearchDto searchDto)
         {
             try
             {
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                string query = "SELECT Locations.LocationId, Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
                     " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
                     " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
 
@@ -452,11 +452,11 @@ namespace DVF_API.Data.Repositories
                 await using SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
                 command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
-
-                foreach (var data in BinaryData)
+                List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+                foreach (var data in searchDto.Coordinates)
                 {
-                    string latitude = data.Coordinates.Split('-')[0];
-                    string longitude = data.Coordinates.Split("-")[1];
+                    string latitude = data.Split('-')[0];
+                    string longitude = data.Split("-")[1];
                     command.Parameters["@Latitude"].Value = latitude;
                     command.Parameters["@Longitude"].Value = longitude;
 
@@ -465,7 +465,12 @@ namespace DVF_API.Data.Repositories
                         var result = await command.ExecuteReaderAsync();
                         while (await result.ReadAsync())
                         {
-                            data.Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+                            BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto() {
+                            Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}",
+                            LocationId = result.GetInt32(result.GetOrdinal("LocationId")),
+                            };
+
+                            binaryDataFromFileDtos.Add(binaryDataFromFileDto);
                         }
 
                     }
@@ -476,7 +481,7 @@ namespace DVF_API.Data.Repositories
                     }
                 }
 
-                return BinaryData;
+                return binaryDataFromFileDtos;
             }
             catch (Exception e)
             {
