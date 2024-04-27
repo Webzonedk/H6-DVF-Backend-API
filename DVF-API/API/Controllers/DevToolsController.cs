@@ -1,4 +1,5 @@
-﻿using DVF_API.Services;
+﻿using DVF_API.API.Models;
+using DVF_API.Services;
 using DVF_API.Services.Interfaces;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -100,12 +101,12 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/CreateHistoricWeatherData")]
-        public async Task<IActionResult> CreateHistoricWeatherData([FromQuery] bool createFiles, bool createDB, [DataType(DataType.Date)] DateTime startDate, [DataType(DataType.Date)] DateTime endDate, [FromHeader(Name = "X-Password")] string password)
+        public async Task<IActionResult> CreateHistoricWeatherData([FromBody] CreateHistoricWeatherDataRequestModel request)
         {
             string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
             try
             {
-                await _developerService.CreateHistoricWeatherDataAsync(password, clientIp, createFiles, createDB, startDate, endDate);
+                await _developerService.CreateHistoricWeatherDataAsync(request.Password, clientIp, request.CreateFiles, request.CreateDB, request.StartDate, request.EndDate);
                 return Ok(new { message = "Historic weather data created" });
             }
             catch (UnauthorizedAccessException ex)

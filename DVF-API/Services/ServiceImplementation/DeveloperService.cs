@@ -175,28 +175,47 @@ namespace DVF_API.Services.ServiceImplementation
                 var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => MixedYearDateTimeSplitter(dto.Time)[0]);
                 historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
 
-             
-
-                foreach (var group in groupedData)
+                var listGroupedData = groupedData.ToList();
+                groupedData = null;
+                for (int i = 0; i < listGroupedData.Count; i++)
                 {
-
-                    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
+                    var orderedList = listGroupedData[i].OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
                     var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
                     orderedList.Clear();
 
-
-                    string date = MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
+                    string date = MixedYearDateTimeSplitter(listGroupedData[i].First().Time)[0].ToString()!; // Full date YYYYMMDD
                     var year = date.Substring(0, 4);
                     var monthDay = date.Substring(4, 4);
                     var yearDirectory = Path.Combine(_baseDirectory, year);
                     Directory.CreateDirectory(yearDirectory);
                     var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
-
+                    
 
                     Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
-                     //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                    //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                    listGroupedData.RemoveAt(i--);
                 }
-                groupedData= null;
+              
+                //foreach (var group in groupedData)
+                //{
+
+                //    var orderedList = group.OrderBy(x => x.Id).ThenBy(x => MixedYearDateTimeSplitter(x.Time)[1]).ToList();
+                //    var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
+                //    orderedList.Clear();
+
+
+                //    string date = MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
+                //    var year = date.Substring(0, 4);
+                //    var monthDay = date.Substring(4, 4);
+                //    var yearDirectory = Path.Combine(_baseDirectory, year);
+                //    Directory.CreateDirectory(yearDirectory);
+                //    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+
+                //    Debug.WriteLine($"year: {year} month and day: {monthDay} yearDirectory: {yearDirectory} filename: {fileName}");
+                //     //_historicWeatherDataRepository.SaveDataToFileAsync(byteArrayToSaveToFile);
+                     
+                //}
             }
             catch (Exception ex)
             {
@@ -228,16 +247,10 @@ namespace DVF_API.Services.ServiceImplementation
                             binaryWriter.Write(groupItem.Wind_Direction_10m);
                             binaryWriter.Write(groupItem.Wind_Gusts_10m);
                             binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
-
                         }
-
                     }
-
-                    // Return the byte array
                     return stream.ToArray();
                 }
-
-                return memoryStream.ToArray();
             }
         }
 
