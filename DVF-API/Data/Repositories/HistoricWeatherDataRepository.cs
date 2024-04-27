@@ -211,7 +211,7 @@ namespace DVF_API.Data.Repositories
         {
             try
             {
-                File.WriteAllBytes(fileName, byteArrayToSaveToFile);
+              await File.WriteAllBytesAsync(fileName, byteArrayToSaveToFile);
             }
             catch (Exception ex)
             {
