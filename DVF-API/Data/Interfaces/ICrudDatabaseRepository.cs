@@ -8,6 +8,6 @@ namespace DVF_API.Data.Interfaces
         Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate);
         Task RestoreAllData();
         Task InsertData(WeatherDataFromIOTDto weatherDataFromIOT);
-
+       
     }
 }

@@ -3,10 +3,12 @@ using DVF_API.Domain.BusinessLogic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 
 namespace DVF_API.Services.ServiceImplementation
 {
@@ -119,6 +121,7 @@ namespace DVF_API.Services.ServiceImplementation
             {
 
                 List<DateOnly> dateList = new List<DateOnly>();
+                int totalCoordinates = searchDto.Coordinates.Count;
 
                 for (DateOnly date = searchDto.FromDate; date <= searchDto.ToDate; date = date.AddDays(1))
                 {
@@ -178,6 +181,74 @@ namespace DVF_API.Services.ServiceImplementation
 
                 var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
 
+                Dictionary<int, LocationDto> locations = new Dictionary<int, LocationDto>();
+                
+                //get all cooordinates
+                if (totalCoordinates == 0)
+                {
+                    locations = await _locationRepository.GetAllLocationCoordinates();
+                }
+                else
+                {
+                    var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                    int locationId = location[0].LocationId;
+                    var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
+                    var address = location[0].Address.Split(' ');
+                    var coordinates = coordinateDictionary[locationId].Split("-");
+                    LocationDto locationDto = new LocationDto()
+                    {
+                        Latitude = coordinates[0],
+                        Longitude = coordinates[1],
+                        StreetName = address[0],
+                        StreetNumber = address[1],
+                        PostalCode = address[2],
+                        CityName = address[3]
+                    };
+                    locations.Add(locationId, locationDto);
+                }
+
+               // List<WeatherDataDto> weatherDataDtos = new List<WeatherDataDto>();
+                foreach (var weatherDataBlock in result)
+                {
+                    using (MemoryStream memoryStream = new MemoryStream(weatherDataBlock.BinaryWeatherData))
+                    using (BinaryReader binaryReader = new BinaryReader(memoryStream, Encoding.UTF8))
+                    {
+                        int Id = binaryReader.ReadInt32();
+                        float time = binaryReader.ReadInt32();
+
+                        var splittedString = weatherDataBlock.YearDate.Split("/");
+                        string secondSplit = splittedString[splittedString.Length - 1];
+                        var year = secondSplit.Split('\\');
+
+                       
+                        WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto()
+                        {
+                             DateAndTime = DateTime.ParseExact(string.Concat(year[0], time), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
+                            Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}",
+                            Latitude = locations[Id].Latitude,
+                            Longitude = locations[Id].Longitude,
+                            TemperatureC = binaryReader.ReadSingle(),
+                            RelativeHumidity = binaryReader.ReadSingle(),
+                            Rain = binaryReader.ReadSingle(),
+                            WindSpeed = binaryReader.ReadSingle(),
+                            WindDirection = binaryReader.ReadSingle(),
+                            WindGust = binaryReader.ReadSingle(),
+                            GlobalTiltedIrRadiance = binaryReader.ReadSingle()
+                        };
+
+                        historicWeatherDataToFileDto = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto);
+
+                        weatherDataDtoList.Add(historicWeatherDataToFileDto);
+
+                        //if(historicWeatherDataToFileDto.SunElevationAngle > 0)
+                        //{
+                        //    Debug.WriteLine(historicWeatherDataToFileDto.SunElevationAngle);
+                        //}
+                    }
+
+                }
+
+
 
                 //  listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
 
@@ -187,35 +258,35 @@ namespace DVF_API.Services.ServiceImplementation
                 var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
                 string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-                for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
-                {
-                    string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');
+                //for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
+                //{
+                //    string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');
 
 
-                    WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfBinaryDataFromFileDto[i].BinaryWeatherData);
+                //    WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfBinaryDataFromFileDto[i].BinaryWeatherData);
 
-                    for (int j = 0; j < weatherDataFileDto.Time.Length; j++)
-                    {
-                        WeatherDataDto weatherDataDto = new WeatherDataDto();
-                        weatherDataDto.Address = listOfBinaryDataFromFileDto[i].Address;
-                        weatherDataDto.Latitude = coordinateParts[0];
-                        weatherDataDto.Longitude = coordinateParts[1];
-                        weatherDataDto.TemperatureC = weatherDataFileDto.Temperature_2m[j];
-                        weatherDataDto.RelativeHumidity = weatherDataFileDto.Relative_Humidity_2m[j];
-                        weatherDataDto.Rain = weatherDataFileDto.Rain[j];
-                        weatherDataDto.WindSpeed = weatherDataFileDto.Wind_Speed_10m[j];
-                        weatherDataDto.WindDirection = weatherDataFileDto.Wind_Direction_10m[j];
-                        weatherDataDto.WindGust = weatherDataFileDto.Wind_Gusts_10m[j];
-                        weatherDataDto.GlobalTiltedIrRadiance = weatherDataFileDto.Global_Tilted_Irradiance_Instant[j];
-                        weatherDataDto.DateAndTime = DateTime.ParseExact(string.Concat(listOfBinaryDataFromFileDto[i].YearDate, weatherDataFileDto.Time[j]), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
-                        weatherDataDtoList.Add(weatherDataDto);
-                    }
-                }
+                //    for (int j = 0; j < weatherDataFileDto.Time.Length; j++)
+                //    {
+                //        WeatherDataDto weatherDataDto = new WeatherDataDto();
+                //        weatherDataDto.Address = listOfBinaryDataFromFileDto[i].Address;
+                //        weatherDataDto.Latitude = coordinateParts[0];
+                //        weatherDataDto.Longitude = coordinateParts[1];
+                //        weatherDataDto.TemperatureC = weatherDataFileDto.Temperature_2m[j];
+                //        weatherDataDto.RelativeHumidity = weatherDataFileDto.Relative_Humidity_2m[j];
+                //        weatherDataDto.Rain = weatherDataFileDto.Rain[j];
+                //        weatherDataDto.WindSpeed = weatherDataFileDto.Wind_Speed_10m[j];
+                //        weatherDataDto.WindDirection = weatherDataFileDto.Wind_Direction_10m[j];
+                //        weatherDataDto.WindGust = weatherDataFileDto.Wind_Gusts_10m[j];
+                //        weatherDataDto.GlobalTiltedIrRadiance = weatherDataFileDto.Global_Tilted_Irradiance_Instant[j];
+                //      weatherDataDto.DateAndTime = DateTime.ParseExact(string.Concat(listOfBinaryDataFromFileDto[i].YearDate, weatherDataFileDto.Time[j]), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                //        weatherDataDtoList.Add(weatherDataDto);
+                //    }
+                //}
 
-                for (int i = 0; i < weatherDataDtoList.Count; i++)
-                {
-                    weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
-                }
+                //for (int i = 0; i < weatherDataDtoList.Count; i++)
+                //{
+                //    weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
+                //}
                 metaDataDto.WeatherData = weatherDataDtoList;
 
                 //calculate amount of data

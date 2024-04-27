@@ -1,8 +1,15 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System;
+using System.Collections;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks.Dataflow;
 
 namespace DVF_API.Data.Repositories
@@ -26,7 +33,7 @@ namespace DVF_API.Data.Repositories
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
         public async Task<List<BinaryDataFromFileDto>> FetchWeatherDataAsync(List<BinarySearchInFilesDto> binarySearchInFilesDtos)
-        { 
+        {
             return await ReadWeatherDataAsync(binarySearchInFilesDtos);
         }
 
@@ -78,37 +85,71 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(List<BinarySearchInFilesDto> binarySearchInFilesDtos)
         {
-          // List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
 
-            //foreach (string coordinate in search.Coordinates)
-            //{
-            //    string path = Path.Combine(baseDirectory, coordinate);
-            //    foreach (int year in Enumerable.Range(search.FromDate.Year, search.ToDate.Year - search.FromDate.Year + 1))
-            //    {
-            //        string yearPath = Path.Combine(path, year.ToString());
-            //        if (Directory.Exists(yearPath))
-            //        {
-            //            var files = Directory.GetFiles(yearPath, "*.bin", SearchOption.TopDirectoryOnly);
-            //            foreach (string file in files)
-            //            {
-            //                if (IsFileDateWithinRange(file, search.FromDate, search.ToDate))
-            //                {
-            //                    string yearDateString = string.Concat(year, Path.GetFileNameWithoutExtension(file));
-            //                    byte[] rawData = await File.ReadAllBytesAsync(file);
-            //                    BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto
-            //                    {
-            //                        Coordinates = coordinate,
-            //                        YearDate = yearDateString,
-            //                        BinaryWeatherData = rawData
-            //                    };
-            //                    binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+            try
+            {
+                List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+                foreach (var file in binarySearchInFilesDtos)
+                {
+                    //skip if filepath does not exists
+                    if (!File.Exists(file.FilePath))
+                    {
+                        Debug.WriteLine($"filepath: {file.FilePath} does not exists");
+                    }
+                    using (FileStream stream = new FileStream(file.FilePath!, FileMode.Open, FileAccess.Read))
+                    {
+                        // Seek to the start byte position
+                        stream.Seek(file.FromByte, SeekOrigin.Begin);
 
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
-            return new List<BinaryDataFromFileDto>();
+                        // Calculate the number of bytes to read
+                        int bytesRead = (int)(file.ToByte - file.FromByte);
+
+                        // Read the bytes into a buffer
+                        byte[] buffer = new byte[bytesRead];
+                        int bytesReadTotal = stream.Read(buffer, 0, bytesRead);
+                        if (bytesReadTotal != bytesRead)
+                        {
+                            // Not all bytes were read
+                            throw new IOException("Not all bytes were read.");
+                        }
+
+
+                        //int bytesReadTotal = 0;
+                        //while (bytesReadTotal < bytesRead)
+                        //{
+                        //    int bytesReadNow = stream.Read(buffer, bytesReadTotal, bytesRead - bytesReadTotal);
+                        //    if (bytesReadNow == 0)
+                        //    {
+                        //        // End of stream reached before reading all bytes
+                        //        throw new IOException("End of stream reached prematurely.");
+                        //    }
+                        //    bytesReadTotal += bytesReadNow;
+                        //}
+
+
+
+
+
+                        BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
+                        {
+                            BinaryWeatherData = buffer,
+                            YearDate = file.FilePath
+
+                        };
+
+                        binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+
+                    }
+                }
+              
+                return binaryDataFromFileDtos;
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+
         }
 
 

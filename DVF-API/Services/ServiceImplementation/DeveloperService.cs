@@ -209,8 +209,8 @@ namespace DVF_API.Services.ServiceImplementation
                             foreach (var groupItem in orderedList)
                             {
                                 binaryWriter.Write(groupItem.Id);
-                                binaryWriter.Write(groupItem.Latitude);
-                                binaryWriter.Write(groupItem.Longitude);
+                                //binaryWriter.Write(groupItem.Latitude);
+                                //binaryWriter.Write(groupItem.Longitude);
                                 binaryWriter.Write((float)_utilityManager.MixedYearDateTimeSplitter(groupItem.Time)[1]);
                                 binaryWriter.Write(groupItem.Temperature_2m);
                                 binaryWriter.Write(groupItem.Relative_Humidity_2m);

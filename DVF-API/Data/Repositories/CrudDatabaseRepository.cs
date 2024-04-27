@@ -12,6 +12,7 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.Domain.BusinessLogic;
 using CoordinateSharp;
 using DVF_API.Services.Models;
+using Bogus.DataSets;
 
 
 namespace DVF_API.Data.Repositories
@@ -521,5 +522,64 @@ namespace DVF_API.Data.Repositories
 
         }
 
+        public async Task<Dictionary<int,LocationDto>> GetAllLocationCoordinates()
+        {
+            return await FetchAllLocationCoordinates();
+        }
+
+
+        private async Task<Dictionary<int, LocationDto>> FetchAllLocationCoordinates()
+        {
+            try
+            {
+                await using SqlConnection connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT * FROM Locations l JOIN Cities c On l.CityId =c.CityId";
+                await using SqlCommand command = new SqlCommand(query, connection);
+
+                //command.Parameters.AddWithValue("@fromIndex", fromIndex);
+                //command.Parameters.AddWithValue("@toIndex", toIndex);
+               Dictionary<int,LocationDto> locationDtos = new Dictionary<int,LocationDto>();
+                try
+                {
+                  
+                    var result = await command.ExecuteReaderAsync();
+                    while (await result.ReadAsync())
+                    {
+
+                        // string coordinate = $"{latitude}-{longitude}";
+                        int id = result.GetInt32(result.GetOrdinal("LocationId"));
+                        LocationDto locationDto = new LocationDto()
+                        {
+
+
+                            Latitude = result["Latitude"].ToString(),
+                            Longitude = result["Longitude"].ToString(),
+                            StreetName = result["StreetName"].ToString(),
+                            StreetNumber = result["StreetNumber"].ToString(),
+                            PostalCode = result["PostalCode"].ToString(),
+                            CityName = result["CityName"].ToString()
+
+                        };
+
+                        locationDtos.Add(id,locationDto);
+
+                    }
+                    return locationDtos;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"An error occurred: {ex.Message}");
+                    // Ready for logging
+                }
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"method failed: {e.Message}");
+                throw;
+            }
+        }
     }
 }
