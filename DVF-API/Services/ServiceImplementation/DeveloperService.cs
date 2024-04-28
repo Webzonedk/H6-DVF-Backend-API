@@ -4,12 +4,7 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Net.Http;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -24,8 +19,6 @@ namespace DVF_API.Services.ServiceImplementation
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
         private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
 
-        //private string _coordinatesFilePath = "..\\DVF-API\\Sources\\UniqueCoordinatesSelected.json";
-        private string _coordinatesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "UniqueCoordinatesSelected.json");
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
         private DateTime startDate = new DateTime(2024, 04, 01);
@@ -114,17 +107,22 @@ namespace DVF_API.Services.ServiceImplementation
                 {
                     return;
                 }
-
                 if (createDB)
                 {
-                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
+                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
 
                 }
                 if (createFiles)
                 {
-                    await MapDataToSaveToStorageDtoToByteArrayAndSendItToRepository(saveToStorageDtos);
-                    // await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
-
+                    try
+                    {
+                    await CreateWeatherDataAndSendItToRepository(saveToStorageDtos);
+                    }
+                    finally
+                    {
+                    saveToStorageDtos.Clear();
+                    _utilityManager.CleanUpRessources();
+                    }
                 }
             }
             catch (Exception ex)
@@ -137,7 +135,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task MapDataToSaveToStorageDtoToByteArrayAndSendItToRepository(List<SaveToStorageDto> saveToStorageDtos)
+        private async Task CreateWeatherDataAndSendItToRepository(List<SaveToStorageDto> saveToStorageDtos)
         {
             List<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new List<HistoricWeatherDataToFileDto>();
 
@@ -184,8 +182,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }));
             }
             await Task.WhenAll(tasks);
-
-            //--------------------------------------------------------------
+            tasks.Clear();
 
             ConcurrentDictionary<double, (string, float)> timeSplitCache = new ConcurrentDictionary<double, (string, float)>();
 
@@ -203,7 +200,7 @@ namespace DVF_API.Services.ServiceImplementation
                               })
                               .ToList();
 
-            historicWeatherDataToFileDtos = new List<HistoricWeatherDataToFileDto>();
+            historicWeatherDataToFileDtos.Clear();
 
             try
             {
@@ -218,8 +215,6 @@ namespace DVF_API.Services.ServiceImplementation
                         try
                         {
                             var orderedList = group
-                                              //.AsParallel()
-                                              //.WithDegreeOfParallelism(Environment.ProcessorCount - 4)
                                               .OrderBy(x => x.Id)
                                               .ThenBy(x =>
                                               {
@@ -243,6 +238,7 @@ namespace DVF_API.Services.ServiceImplementation
                             var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
 
                             await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, byteArrayToSaveToFile);
+                            byteArrayToSaveToFile = Array.Empty<byte>();
                         }
                         catch (Exception ex)
                         {
@@ -255,14 +251,15 @@ namespace DVF_API.Services.ServiceImplementation
                     }));
                 }
                 await Task.WhenAll(tasks);
-                groupedData = null;
-                _utilityManager.CleanUpRessources();
+                tasks.Clear();
+                timeSplitCache.Clear();
+                groupedData.Clear();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"{ex.Message}");
             }
-            
+
         }
 
 
@@ -312,7 +309,7 @@ namespace DVF_API.Services.ServiceImplementation
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
+                jsonData = null;
                 if (originalWeatherDataFromAPI != null)
                 {
                     await ProcessAllCoordinates(saveToStorageDtos, originalWeatherDataFromAPI, locationCoordinatesWithId);
@@ -370,6 +367,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }));
             }
             await Task.WhenAll(tasks);
+            tasks.Clear(); 
         }
 
 

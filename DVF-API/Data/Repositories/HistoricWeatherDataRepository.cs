@@ -204,57 +204,30 @@ namespace DVF_API.Data.Repositories
 
         private async Task SaveDataAsBinaryFilesAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
-
             try
             {
-               await File.WriteAllBytesAsync(fileName, byteArrayToSaveToFile);
+                using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                {
+                    await fileStream.WriteAsync(byteArrayToSaveToFile, 0, byteArrayToSaveToFile.Length);
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Debug.WriteLine($"Access denied: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine($"IO error: {ex.Message}");
+                if (ex is PathTooLongException)
+                {
+                    Debug.WriteLine("The specified path, file name, or both exceed the system-defined maximum length.");
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"A File writer error occurred: {ex.Message}");
             }
-
         }
-
-
-
-        private double ConvertDateTimeToFloatInternal(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
-        }
-
-
-        private float ConvertCoordinate(string coordinate)
-        {
-            var normalized = coordinate.Replace(',', '.');
-            return float.Parse(normalized, CultureInfo.InvariantCulture);
-        }
-
-
-        private object[] MixedYearDateTimeSplitter(double time)
-        {
-            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
-            string timeString = time.ToString("000000000000");
-
-            // Extract year, month, and day
-            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
-
-            // Extract HHmm as float
-            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
-
-            return result;
-        }
-
-
-
-
-
-
-
-
-
-
 
 
 

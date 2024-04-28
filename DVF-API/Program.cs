@@ -17,19 +17,19 @@ builder.Services.AddSwaggerGen();
 builder.Configuration.GetConnectionString("WeatherDataDb");
 
 //Dependency injections
-builder.Services.AddTransient<ICrudDatabaseRepository, CrudDatabaseRepository>();
-builder.Services.AddTransient<ICrudFileRepository, CrudFileRepository>();
-builder.Services.AddTransient<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
-builder.Services.AddTransient<ILocationRepository, CrudDatabaseRepository>();
+builder.Services.AddScoped<ICrudDatabaseRepository, CrudDatabaseRepository>();
+builder.Services.AddScoped<ICrudFileRepository, CrudFileRepository>();
+builder.Services.AddScoped<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
+builder.Services.AddScoped<ILocationRepository, CrudDatabaseRepository>();
 
-builder.Services.AddTransient<IAddWeatherDataService, AddWeatherDataService>();
-builder.Services.AddTransient<IDataService, DataService>();
-builder.Services.AddTransient<IDeveloperService, DeveloperService>();
-builder.Services.AddTransient<IMaintenanceService, MaintenanceService>();
-
-builder.Services.AddTransient<ISolarPositionManager, SolarPositionManager>();
-builder.Services.AddTransient<IUtilityManager, UtilityManager>();
-builder.Services.AddTransient<IBinaryConversionManager, BinaryConversionManager>();
+builder.Services.AddScoped<IAddWeatherDataService, AddWeatherDataService>();
+builder.Services.AddScoped<IDataService, DataService>();
+builder.Services.AddScoped<IDeveloperService, DeveloperService>();
+builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
+                 
+builder.Services.AddScoped<ISolarPositionManager, SolarPositionManager>();
+builder.Services.AddScoped<IUtilityManager, UtilityManager>();
+builder.Services.AddScoped<IBinaryConversionManager, BinaryConversionManager>();
 
 
 var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";
