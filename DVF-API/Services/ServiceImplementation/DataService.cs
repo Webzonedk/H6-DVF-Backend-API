@@ -3,8 +3,10 @@ using DVF_API.Domain.BusinessLogic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 
 namespace DVF_API.Services.ServiceImplementation
 {
@@ -53,7 +55,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        public async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<Dictionary<int, string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
         }
@@ -74,7 +76,7 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
                 long currentBytes = _utilityManager.BeginMeasureMemory();
 
-                
+
 
                 //get data
                 MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
@@ -85,7 +87,7 @@ namespace DVF_API.Services.ServiceImplementation
                 var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
                 string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-               
+
                 //map data to model if model is retrieved successfully
                 if (modelResult != null)
                 {
@@ -115,21 +117,76 @@ namespace DVF_API.Services.ServiceImplementation
             }
             if (!searchDto.ToggleDB)
             {
+
+                List<DateOnly> dateList = new List<DateOnly>();
+
+                for (DateOnly date = searchDto.FromDate; date <= searchDto.ToDate; date = date.AddDays(1))
+                {
+                    dateList.Add(date);
+                }
+
                 List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
 
 
                 // start measuring CPU usage and Memory before executing the code
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
                 long currentBytes = _utilityManager.BeginMeasureMemory();
+                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                List<BinarySearchInFilesDto> binarySearchInFilesDtos = new List<BinarySearchInFilesDto>();
 
-                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
+                try
+                {
+                    for (int i = 0; i < dateList.Count; i++)
+                    {
+
+                        double yearDate = _utilityManager.ConvertDateTimeToFloatInternal(dateList[i].ToString());
+                        var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
+                        var year = fullDate.Substring(0, 4);
+                        var monthDay = fullDate.Substring(4, 4);
+                        var directory = Path.Combine(_baseDirectory, year);
+                        var fileName = Path.Combine(directory, $"{monthDay}.bin");
+                        BinarySearchInFilesDto binaryDataFromFileDto = new BinarySearchInFilesDto();
+
+                        try
+                        {
+                            for (int j = 0; j < listOfBinaryDataFromFileDto.Count; j++)
+                            {
+
+                                binaryDataFromFileDto.FilePath = fileName;
+                                binaryDataFromFileDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
+                                binaryDataFromFileDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
+
+                                binarySearchInFilesDtos.Add(binaryDataFromFileDto);
+
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.WriteLine($"inner loop: {e}");
+
+                        }
+
+                    }
+                }
+                catch (Exception e)
+                {
+
+                    Debug.WriteLine($"outer loop: {e}");
+                }
+
+
+
+                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
+
+
+                //  listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
+
 
                 // return recorded CPU usage and memory usage
                 var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
                 var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
                 string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-                listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(listOfBinaryDataFromFileDto);
                 for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
                 {
                     string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');

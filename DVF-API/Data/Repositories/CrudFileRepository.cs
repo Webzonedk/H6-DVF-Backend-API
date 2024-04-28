@@ -25,9 +25,9 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchWeatherDataAsync(string baseDirectory, SearchDto search)
+        public async Task<List<BinaryDataFromFileDto>> FetchWeatherDataAsync(List<BinarySearchInFilesDto> binarySearchInFilesDtos)
         { 
-            return await ReadWeatherDataAsync(baseDirectory, search);
+            return await ReadWeatherDataAsync(binarySearchInFilesDtos);
         }
 
 
@@ -76,39 +76,39 @@ namespace DVF_API.Data.Repositories
         /// <param name="baseDirectory"></param>
         /// <param name="search"></param>
         /// <returns></returns>
-        private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(string baseDirectory, SearchDto search)
+        private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(List<BinarySearchInFilesDto> binarySearchInFilesDtos)
         {
-            List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+          // List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
 
-            foreach (string coordinate in search.Coordinates)
-            {
-                string path = Path.Combine(baseDirectory, coordinate);
-                foreach (int year in Enumerable.Range(search.FromDate.Year, search.ToDate.Year - search.FromDate.Year + 1))
-                {
-                    string yearPath = Path.Combine(path, year.ToString());
-                    if (Directory.Exists(yearPath))
-                    {
-                        var files = Directory.GetFiles(yearPath, "*.bin", SearchOption.TopDirectoryOnly);
-                        foreach (string file in files)
-                        {
-                            if (IsFileDateWithinRange(file, search.FromDate, search.ToDate))
-                            {
-                                string yearDateString = string.Concat(year, Path.GetFileNameWithoutExtension(file));
-                                byte[] rawData = await File.ReadAllBytesAsync(file);
-                                BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto
-                                {
-                                    Coordinates = coordinate,
-                                    YearDate = yearDateString,
-                                    BinaryWeatherData = rawData
-                                };
-                                binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+            //foreach (string coordinate in search.Coordinates)
+            //{
+            //    string path = Path.Combine(baseDirectory, coordinate);
+            //    foreach (int year in Enumerable.Range(search.FromDate.Year, search.ToDate.Year - search.FromDate.Year + 1))
+            //    {
+            //        string yearPath = Path.Combine(path, year.ToString());
+            //        if (Directory.Exists(yearPath))
+            //        {
+            //            var files = Directory.GetFiles(yearPath, "*.bin", SearchOption.TopDirectoryOnly);
+            //            foreach (string file in files)
+            //            {
+            //                if (IsFileDateWithinRange(file, search.FromDate, search.ToDate))
+            //                {
+            //                    string yearDateString = string.Concat(year, Path.GetFileNameWithoutExtension(file));
+            //                    byte[] rawData = await File.ReadAllBytesAsync(file);
+            //                    BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto
+            //                    {
+            //                        Coordinates = coordinate,
+            //                        YearDate = yearDateString,
+            //                        BinaryWeatherData = rawData
+            //                    };
+            //                    binaryDataFromFileDtos.Add(binaryDataFromFileDto);
 
-                            }
-                        }
-                    }
-                }
-            }
-            return binaryDataFromFileDtos;
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            return new List<BinaryDataFromFileDto>();
         }
 
 

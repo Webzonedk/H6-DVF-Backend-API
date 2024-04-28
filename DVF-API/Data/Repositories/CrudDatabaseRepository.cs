@@ -70,14 +70,14 @@ namespace DVF_API.Data.Repositories
 
                 await using SqlCommand command = new SqlCommand(query, connection);
                 List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
-               
+
                 CultureInfo culture = new CultureInfo("en-US");
                 string formattedToDate = searchDto.ToDate.ToString("yyyy-MM-dd", culture);
                 string formattedFromDate = searchDto.FromDate.ToString("yyyy-MM-dd", culture);
 
                 command.Parameters.AddWithValue("@FromDate ", formattedFromDate);
                 command.Parameters.AddWithValue("@ToDate", formattedToDate);
-                
+
                 try
                 {
                     using SqlDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
@@ -220,11 +220,11 @@ namespace DVF_API.Data.Repositories
         /// <param name="fromIndex"></param>
         /// <param name="toIndex"></param>
         /// <returns></returns>
-        public async Task<List<string>> FetchLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<Dictionary<int, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
         {
             return await GetLocationCoordinates(fromIndex, toIndex);
         }
-        private async Task<List<string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        private async Task<Dictionary<int, string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             try
             {
@@ -240,15 +240,18 @@ namespace DVF_API.Data.Repositories
                 try
                 {
                     var result = await command.ExecuteReaderAsync();
-                    List<string> coordinates = new List<string>();
+                    Dictionary<int, string> coordinates = new Dictionary<int, string>();
 
                     while (await result.ReadAsync())
                     {
                         string latitude = result["Latitude"].ToString();
                         string longitude = result["Longitude"].ToString();
+                        int idIndex = result.GetOrdinal("locationId");
+                        int id = result.GetInt32(idIndex);
+
 
                         string coordinate = $"{latitude}-{longitude}";
-                        coordinates.Add(coordinate);
+                        coordinates.Add(id, coordinate);
                     }
                     return coordinates;
                 }
@@ -430,50 +433,84 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="BinaryData"></param>
         /// <returns></returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(SearchDto searchDto)
         {
-            return await GetAddressByCoordinates(BinaryData);
+            return await GetAddressByCoordinates(searchDto);
         }
-        private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(List<BinaryDataFromFileDto> BinaryData)
+        private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(SearchDto searchDto)
         {
             try
             {
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
-
-                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
-                    " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
-                    " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
-
-
-                await using SqlCommand command = new SqlCommand(query, connection);
-                command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
-                command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
-
-                foreach (var data in BinaryData)
+                string query = "";
+                List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+                if (searchDto.Coordinates.Count == 0)
                 {
-                    string latitude = data.Coordinates.Split('-')[0];
-                    string longitude = data.Coordinates.Split("-")[1];
-                    command.Parameters["@Latitude"].Value = latitude;
-                    command.Parameters["@Longitude"].Value = longitude;
+                    query = "SELECT Locations.LocationId, Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                   " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId";
 
-                    try
+
+                    await using SqlCommand command = new SqlCommand(query, connection);
+
+                    var result = await command.ExecuteReaderAsync();
+                    while (await result.ReadAsync())
                     {
-                        var result = await command.ExecuteReaderAsync();
-                        while (await result.ReadAsync())
+                        BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
                         {
-                            data.Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
-                        }
+                            Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}",
+                            LocationId = result.GetInt32(result.GetOrdinal("LocationId")),
+                        };
 
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"An error occurred: {ex.Message}");
-                        // Ready for logging
+                        binaryDataFromFileDtos.Add(binaryDataFromFileDto);
                     }
                 }
+                else
+                {
+                    query = "SELECT Locations.LocationId, Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                   " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
+                   " WHERE Locations.Latitude = @latitude AND Locations.Longitude = @longitude";
+                    await using SqlCommand command = new SqlCommand(query, connection);
+                    command.Parameters.Add("@Latitude", SqlDbType.VarChar, 255);
+                    command.Parameters.Add("@Longitude", SqlDbType.VarChar, 255);
+                    foreach (var data in searchDto.Coordinates)
+                    {
+                        string latitude = data.Split('-')[0];
+                        string longitude = data.Split("-")[1];
+                        command.Parameters["@Latitude"].Value = latitude;
+                        command.Parameters["@Longitude"].Value = longitude;
 
-                return BinaryData;
+                        try
+                        {
+                            var result = await command.ExecuteReaderAsync();
+                            while (await result.ReadAsync())
+                            {
+                                BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
+                                {
+                                    Address = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}",
+                                    LocationId = result.GetInt32(result.GetOrdinal("LocationId")),
+                                };
+
+                                binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+                            }
+
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"An error occurred: {ex.Message}");
+                            // Ready for logging
+                        }
+                    }
+
+                }
+
+
+
+
+
+
+                return binaryDataFromFileDtos;
+
             }
             catch (Exception e)
             {

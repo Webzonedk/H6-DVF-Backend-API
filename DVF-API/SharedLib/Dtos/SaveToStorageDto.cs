@@ -2,8 +2,9 @@
 {
     public class SaveToStorageDto
     {
-        public HistoricWeatherDataDto HistoricWeatherData { get; set; }
+        public long LocationId { get; set; }
         public string Latitude { get; set; }
         public string Longitude { get; set; }
+        public HistoricWeatherDataDto HistoricWeatherData { get; set; }
     }
 }

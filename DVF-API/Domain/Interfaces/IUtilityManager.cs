@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 
 namespace DVF_API.Domain.Interfaces
 {
@@ -16,6 +17,16 @@ namespace DVF_API.Domain.Interfaces
         long BeginMeasureMemory();
         int StopMeasureMemory(long ramUsageBeforeBytes);
         string ConvertBytesToFormat(int bytes);
+        double ConvertDateTimeToFloatInternal(string time);
+        float ConvertCoordinate(string coordinate);
+        object[] MixedYearDateTimeSplitter(double time);
+
+
+
+
+
+
+
 
 
 

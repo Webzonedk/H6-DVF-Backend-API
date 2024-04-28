@@ -3,7 +3,7 @@
 
 
 
-    public class HistoricWeatherDataToFileDto
+    public class HistoricWeatherDataToFileDtoTemp
 
     {
         public long Id { get; set; }
