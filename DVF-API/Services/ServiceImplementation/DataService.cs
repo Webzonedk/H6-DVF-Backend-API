@@ -135,7 +135,8 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
                 long currentBytes = _utilityManager.BeginMeasureMemory();
                 List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
-                List<BinarySearchInFilesDto> binarySearchInFilesDtos = new List<BinarySearchInFilesDto>();
+              //  List<BinarySearchInFilesDto> binarySearchInFilesDtos = new List<BinarySearchInFilesDto>();
+                Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtoDictionary = new Dictionary<string, List<BinarySearchInFilesDto>>();
 
                 try
                 {
@@ -149,18 +150,31 @@ namespace DVF_API.Services.ServiceImplementation
                         var directory = Path.Combine(_baseDirectory, year);
                         var fileName = Path.Combine(directory, $"{monthDay}.bin");
                         BinarySearchInFilesDto binaryDataFromFileDto = new BinarySearchInFilesDto();
-
                         try
                         {
                             for (int j = 0; j < listOfBinaryDataFromFileDto.Count; j++)
                             {
 
-                                binaryDataFromFileDto.FilePath = fileName;
-                                binaryDataFromFileDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
-                                binaryDataFromFileDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
+                                //binaryDataFromFileDto.FilePath = fileName;
+                                //binaryDataFromFileDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
+                                //binaryDataFromFileDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
 
-                                binarySearchInFilesDtos.Add(binaryDataFromFileDto);
+                                BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
+                                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
+                                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
 
+                                //binarySearchInFilesDtos.Add(fileName,binaryDataFromFileDto);
+                                if (binarySearchInFilesDtoDictionary.ContainsKey(fileName))
+                                {
+                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                }
+                                else
+                                {
+                                    binarySearchInFilesDtoDictionary.Add(fileName, new List<BinarySearchInFilesDto>());
+                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                }
+
+                                // binarySearchInFilesDtoDictionary.Add(fileName,)
                             }
                         }
                         catch (Exception e)
@@ -179,7 +193,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
+                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtoDictionary);
 
                 Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
 
