@@ -3,6 +3,7 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -77,96 +78,150 @@ namespace DVF_API.Data.Repositories
 
 
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="baseDirectory"></param>
-        /// <param name="search"></param>
-        /// <returns></returns>
+
+
+
         private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
-
-            List<Task> tasks = new List<Task>();
-            object lockObject = new object();
+            ConcurrentBag<BinaryDataFromFileDto> binaryDataFromFileDtos = new ConcurrentBag<BinaryDataFromFileDto>();
             SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
 
-            // var groupedObjects = binarySearchInFilesDtos.GroupBy(x => x.FilePath);
-
-
-            List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
-            foreach (var file in binarySearchInFilesDtos)
+            await Task.WhenAll(binarySearchInFilesDtos.Select(async file =>
             {
+                await semaphore.WaitAsync();
 
-                tasks.Add(Task.Run(async () =>
+                try
                 {
-                    await semaphore.WaitAsync();
-
-                    try
+                    if (File.Exists(file.Key))
                     {
-                        //skip if filepath does not exists
-                        if (File.Exists(file.Key))
+                        using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
                         {
-                            Debug.WriteLine($"found filepath: {file.Key}---------------------");
-                            using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read,FileShare.Read,4096,true))
+                            foreach (var byteRange in file.Value.OrderBy(br => br.FromByte))
                             {
-                                foreach (var byteRange in file.Value)
+                                int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
+                                byte[] buffer = new byte[bytesRead];
+                                int bytesReadTotal = await stream.ReadAsync(buffer, 0, bytesRead);
+                                if (bytesReadTotal != bytesRead)
                                 {
-
-                                    // Seek to the start byte position
-                                    stream.Seek(byteRange.FromByte, SeekOrigin.Begin);
-
-                                    // Calculate the number of bytes to read
-                                    int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
-
-                                    // Read the bytes into a buffer
-                                    byte[] buffer = new byte[bytesRead];
-                                    int bytesReadTotal = await stream.ReadAsync(buffer, 0, bytesRead);
-                                    if (bytesReadTotal != bytesRead)
-                                    {
-                                        // Not all bytes were read
-                                        throw new IOException("Not all bytes were read.");
-                                    }
-
-                                    BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
-                                    {
-                                        BinaryWeatherData = buffer,
-                                        YearDate = file.Key
-
-                                    };
-
-                                    lock (lockObject)
-                                    {
-                                        binaryDataFromFileDtos.Add(binaryDataFromFileDto);
-                                    }
-
+                                    throw new IOException("Not all bytes were read.");
                                 }
+
+                                binaryDataFromFileDtos.Add(new BinaryDataFromFileDto()
+                                {
+                                    BinaryWeatherData = buffer,
+                                    YearDate = file.Key
+                                });
                             }
                         }
-
                     }
-                    catch (Exception e)
-                    {
-                        Debug.WriteLine(e);
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine(e);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }));
 
-                    }
-
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-
-
-                }));
-
-            }
-
-            await Task.WhenAll(tasks);
-            tasks.Clear();
-            binarySearchInFilesDtos.Clear();
-            return binaryDataFromFileDtos;
-
-
+            return binaryDataFromFileDtos.ToList();
         }
+
+
+
+
+
+        ///// <summary>
+        ///// 
+        ///// </summary>
+        ///// <param name="baseDirectory"></param>
+        ///// <param name="search"></param>
+        ///// <returns></returns>
+        //private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        //{
+
+        //    List<Task> tasks = new List<Task>();
+        //    object lockObject = new object();
+        //    SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
+
+        //    // var groupedObjects = binarySearchInFilesDtos.GroupBy(x => x.FilePath);
+
+
+        //    List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+        //    foreach (var file in binarySearchInFilesDtos)
+        //    {
+
+        //        tasks.Add(Task.Run(async () =>
+        //        {
+        //            await semaphore.WaitAsync();
+
+        //            try
+        //            {
+        //                //skip if filepath does not exists
+        //                if (File.Exists(file.Key))
+        //                {
+        //                    Debug.WriteLine($"found filepath: {file.Key}---------------------");
+        //                    using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
+        //                    {
+        //                        foreach (var byteRange in file.Value)
+        //                        {
+
+        //                            // Seek to the start byte position
+        //                            stream.Seek(byteRange.FromByte, SeekOrigin.Begin);
+
+        //                            // Calculate the number of bytes to read
+        //                            int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
+
+        //                            // Read the bytes into a buffer
+        //                            byte[] buffer = new byte[bytesRead];
+        //                            int bytesReadTotal = await stream.ReadAsync(buffer, 0, bytesRead);
+        //                            if (bytesReadTotal != bytesRead)
+        //                            {
+        //                                // Not all bytes were read
+        //                                throw new IOException("Not all bytes were read.");
+        //                            }
+
+        //                            BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
+        //                            {
+        //                                BinaryWeatherData = buffer,
+        //                                YearDate = file.Key
+
+        //                            };
+
+        //                            lock (lockObject)
+        //                            {
+        //                                binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+        //                            }
+
+        //                        }
+        //                    }
+        //                }
+
+        //            }
+        //            catch (Exception e)
+        //            {
+        //                Debug.WriteLine(e);
+
+        //            }
+
+        //            finally
+        //            {
+        //                semaphore.Release();
+        //            }
+
+
+        //        }));
+
+        //    }
+
+        //    await Task.WhenAll(tasks);
+        //    tasks.Clear();
+        //    binarySearchInFilesDtos.Clear();
+        //    return binaryDataFromFileDtos;
+
+
+        //}
 
 
 

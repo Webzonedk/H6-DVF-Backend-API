@@ -197,7 +197,7 @@ namespace DVF_API.Services.ServiceImplementation
 
                 Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
 
-                //get all cooordinates
+                //get all coordinates
                 if (totalCoordinates == 0)
                 {
                     locations = await _locationRepository.GetAllLocationCoordinates();
