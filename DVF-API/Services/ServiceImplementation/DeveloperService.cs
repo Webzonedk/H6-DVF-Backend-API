@@ -109,7 +109,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 if (createDB)
                 {
-                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
+                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
 
                 }
                 if (createFiles)

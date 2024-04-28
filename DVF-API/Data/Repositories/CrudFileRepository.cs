@@ -81,9 +81,6 @@ namespace DVF_API.Data.Repositories
         private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
 
-            List<Task> tasks = new List<Task>();
-            object lockObject = new object();
-            SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
 
 
 
@@ -177,13 +174,13 @@ namespace DVF_API.Data.Repositories
                 }));
             }
 
-            await Task.WhenAll(tasks);
-            tasks.Clear();
-            binarySearchInFilesDtos.Clear();
-            return binaryDataFromFileDtos;
+        //    await Task.WhenAll(tasks);
+        //    tasks.Clear();
+        //    binarySearchInFilesDtos.Clear();
+        //    return binaryDataFromFileDtos;
 
 
-        }
+        //}
 
         /// <summary>
         /// 
