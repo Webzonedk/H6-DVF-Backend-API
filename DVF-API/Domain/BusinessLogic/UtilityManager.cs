@@ -158,20 +158,20 @@ namespace DVF_API.Domain.BusinessLogic
         }
 
         /// <summary>
-        /// override method to take in an list of an object
+        /// override method to take in an list of an object - Ops! obsolete
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public int GetModelSize<T>(List<T> list)
-        {
-            int totalSize = 0;
-            foreach (var item in list)
-            {
-                totalSize += GetModelSize(item);
-            }
-            return totalSize;
-        }
+        //public int GetModelSize<T>(List<T> list)
+        //{
+        //    int totalSize = 0;
+        //    foreach (var item in list)
+        //    {
+        //        totalSize += GetModelSize(item);
+        //    }
+        //    return totalSize;
+        //}
 
         /// <summary>
         /// converts number of bytes to MB
@@ -218,6 +218,25 @@ namespace DVF_API.Domain.BusinessLogic
             }
         }
 
+        public string ConvertTimeMeasurementToFormat(float time)
+        {
+            if (time < 1000)
+            {
+                // Time is in milliseconds
+                return $"{time.ToString("0.##")} ms"; // Limit to 2 decimal places
+            }
+            else if (time < 60_000)
+            {
+                // Time is in seconds
+                return $"{(time / 1000).ToString("0.##")} sec"; // Limit to 2 decimal places
+            }
+            else
+            {
+                // Time is in minutes
+                return $"{(time / 60_000).ToString("0.##")} min"; // Limit to 2 decimal places
+            }
+        }
+
 
         /// <summary>
         /// begins measuring the time and process of current process, returns the elapsed time and a stopwatch object
@@ -240,16 +259,24 @@ namespace DVF_API.Domain.BusinessLogic
             // Record end time
             stopwatch.Stop();
             TimeSpan elapsedTime = stopwatch.Elapsed;
+            
+            
 
             // Get CPU usage after executing the code
             Process processAfter = Process.GetCurrentProcess();
-            TimeSpan cpuTimeAfter = processAfter.TotalProcessorTime;
+            //  TimeSpan cpuTimeAfter = processAfter.TotalProcessorTime;
 
             // Calculate CPU usage during the execution of the code
-            TimeSpan cpuTimeUsed = cpuTimeAfter - cpuTimeBefore;
-            float cpuUsage = (float)((cpuTimeUsed.TotalMilliseconds / elapsedTime.TotalMilliseconds) * 100);
+            //TimeSpan cpuTimeUsed = cpuTimeAfter - cpuTimeBefore;
+            //float cpuUsage = (float)((cpuTimeUsed.TotalMilliseconds / elapsedTime.TotalMilliseconds) * 100);
+            var endCpuUsage = Process.GetCurrentProcess().TotalProcessorTime;
+            var cpuUsedMs = (endCpuUsage - cpuTimeBefore).TotalMilliseconds;
+            var totalMsPassed = (elapsedTime - cpuTimeBefore).TotalMilliseconds;
+            var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
 
-            return (CpuUsage: cpuUsage, ElapsedTimeMs: (float)elapsedTime.TotalMilliseconds);
+
+
+            return (CpuUsage: (float)cpuUsageTotal *100, ElapsedTimeMs: (float)elapsedTime.TotalMilliseconds);
         }
 
         /// <summary>
@@ -312,5 +339,7 @@ namespace DVF_API.Domain.BusinessLogic
 
             return result;
         }
+
+      
     }
 }

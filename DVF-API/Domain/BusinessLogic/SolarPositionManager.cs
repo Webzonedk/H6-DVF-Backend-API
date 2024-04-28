@@ -27,9 +27,9 @@ namespace DVF_API.Domain.BusinessLogic
         /// </summary>
         /// <param name="weatherDataDto"></param>
         /// <returns>Returns a WeatherDataDto object containing the Sun's elevation and azimuth angles in degrees.</returns>
-        public WeatherDataDto CalculateSunAngles(WeatherDataDto weatherDataDto) 
+        public  WeatherDataDto CalculateSunAngles(WeatherDataDto weatherDataDto) 
         {
-            return CalculateSunPosition(weatherDataDto);
+            return  CalculateSunPosition(weatherDataDto);
         }
 
 
@@ -43,7 +43,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// <param name="latitude">The latitude in decimal degrees.</param>
         /// <param name="longitude">The longitude in decimal degrees.</param>
         /// <returns>an WeatherDataDto object containing the Sun's elevation and azimuth angles in degrees.</returns>
-        private WeatherDataDto CalculateSunPosition(WeatherDataDto weathterDataDto)
+        private  WeatherDataDto CalculateSunPosition(WeatherDataDto weathterDataDto)
         {
            // double latitude = Math.Round(Convert.ToDouble(weathterDataDto.Latitude), 8, MidpointRounding.AwayFromZero);
            string formattedLat = weathterDataDto.Latitude!.Replace(".",",");

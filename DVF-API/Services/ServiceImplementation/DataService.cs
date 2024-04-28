@@ -93,24 +93,43 @@ namespace DVF_API.Services.ServiceImplementation
                 //map data to model if model is retrieved successfully
                 if (modelResult != null)
                 {
-                    //calculate sun angles
+
+                    (TimeSpan convertionCpuTimeBefore, Stopwatch convertionStopwatch) = _utilityManager.BeginMeasureCPU();
+                    long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
+
+
+                    List<Task> tasks = new List<Task>();
                     for (int i = 0; i < modelResult.WeatherData.Count; i++)
                     {
-                        var Result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[i]);
-                        modelResult.WeatherData[i] = Result;
+                        int index = i;
+                        tasks.Add(Task.Run(() =>
+                        {
+                            var result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[index]);
+                            modelResult.WeatherData[index] = result;
+                        }));
                     }
 
+                    await Task.WhenAll(tasks);
+
+
+                    var ConvertioncpuResult = _utilityManager.StopMeasureCPU(convertionCpuTimeBefore, convertionStopwatch);
+                    var ConvertionbyteMemory = _utilityManager.StopMeasureMemory(convertionCurrentBytes);
+                    string ConvertionmeasuredRamUsage = _utilityManager.ConvertBytesToFormat(ConvertionbyteMemory);
+
+
                     //calculate amount of data
-                    int weatherDataInBytes = _utilityManager.GetModelSize(modelResult.WeatherData);
                     int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult);
-                    int totalBytes = metaDataModelInBytes + weatherDataInBytes;
+                    int totalBytes = metaDataModelInBytes;
                     string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
 
                     //map measurements to model
                     modelResult.DataLoadedMB = dataCollectedInMB;
-                    modelResult.FetchDataTimer = cpuResult.ElapsedTimeMs;
+                    modelResult.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(cpuResult.ElapsedTimeMs);
                     modelResult.CpuUsage = cpuResult.CpuUsage;
                     modelResult.RamUsage = measuredRamUsage;
+                    modelResult.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(ConvertioncpuResult.ElapsedTimeMs);
+                    modelResult.ConvertionCpuUsage = ConvertioncpuResult.CpuUsage;
+                    modelResult.ConvertionRamUsage = ConvertionmeasuredRamUsage;
 
                     return modelResult;
                 }
@@ -131,11 +150,11 @@ namespace DVF_API.Services.ServiceImplementation
                 List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
 
 
-                // start measuring CPU usage and Memory before executing the code
-                (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
-                long currentBytes = _utilityManager.BeginMeasureMemory();
+
+
+                //get locations before getting weatherdata
                 List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
-                List<BinarySearchInFilesDto> binarySearchInFilesDtos = new List<BinarySearchInFilesDto>();
+                Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtoDictionary = new Dictionary<string, List<BinarySearchInFilesDto>>();
 
                 try
                 {
@@ -149,17 +168,23 @@ namespace DVF_API.Services.ServiceImplementation
                         var directory = Path.Combine(_baseDirectory, year);
                         var fileName = Path.Combine(directory, $"{monthDay}.bin");
                         BinarySearchInFilesDto binaryDataFromFileDto = new BinarySearchInFilesDto();
-
                         try
                         {
                             for (int j = 0; j < listOfBinaryDataFromFileDto.Count; j++)
                             {
+                                BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
+                                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
+                                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
 
-                                binaryDataFromFileDto.FilePath = fileName;
-                                binaryDataFromFileDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
-                                binaryDataFromFileDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
-
-                                binarySearchInFilesDtos.Add(binaryDataFromFileDto);
+                                if (binarySearchInFilesDtoDictionary.ContainsKey(fileName))
+                                {
+                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                }
+                                else
+                                {
+                                    binarySearchInFilesDtoDictionary.Add(fileName, new List<BinarySearchInFilesDto>());
+                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                }
 
                             }
                         }
@@ -177,12 +202,23 @@ namespace DVF_API.Services.ServiceImplementation
                     Debug.WriteLine($"outer loop: {e}");
                 }
 
+                // start measuring CPU usage and Memory before executing the code
+                (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
+                long currentBytes = _utilityManager.BeginMeasureMemory();
+
+                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtoDictionary);
 
 
-                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
+                // return recorded CPU usage and memory usage
+                var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
+                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
+                string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-                Dictionary<int, LocationDto> locations = new Dictionary<int, LocationDto>();
-                
+                Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
+
+                (TimeSpan convertionCpuTimeBefore, Stopwatch convertionStopwatch) = _utilityManager.BeginMeasureCPU();
+                long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
+
                 //get all cooordinates
                 if (totalCoordinates == 0)
                 {
@@ -207,23 +243,22 @@ namespace DVF_API.Services.ServiceImplementation
                     locations.Add(locationId, locationDto);
                 }
 
-               // List<WeatherDataDto> weatherDataDtos = new List<WeatherDataDto>();
+                List<Task> tasks = new List<Task>();
                 foreach (var weatherDataBlock in result)
                 {
                     using (MemoryStream memoryStream = new MemoryStream(weatherDataBlock.BinaryWeatherData))
                     using (BinaryReader binaryReader = new BinaryReader(memoryStream, Encoding.UTF8))
                     {
-                        int Id = binaryReader.ReadInt32();
-                        float time = binaryReader.ReadInt32();
+                        long Id = binaryReader.ReadInt64();
+                        float time = binaryReader.ReadSingle();
 
-                        var splittedString = weatherDataBlock.YearDate.Split("/");
-                        string secondSplit = splittedString[splittedString.Length - 1];
-                        var year = secondSplit.Split('\\');
+                        string date = Path.GetFileNameWithoutExtension(weatherDataBlock.YearDate);
+                        string year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.YearDate));
 
-                       
+
                         WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto()
                         {
-                             DateAndTime = DateTime.ParseExact(string.Concat(year[0], time.ToString()), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
+                            DateAndTime = DateTime.ParseExact(string.Concat(year, date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
                             Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}",
                             Latitude = locations[Id].Latitude,
                             Longitude = locations[Id].Longitude,
@@ -236,70 +271,39 @@ namespace DVF_API.Services.ServiceImplementation
                             GlobalTiltedIrRadiance = binaryReader.ReadSingle()
                         };
 
-                        historicWeatherDataToFileDto = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto);
-
+                        WeatherDataDto weatherDataDtoCopy = historicWeatherDataToFileDto;
+                        tasks.Add(Task.Run(() =>
+                        {
+                            _solarPositionManager.CalculateSunAngles(weatherDataDtoCopy);
+                        }));
+                        // historicWeatherDataToFileDto = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto);
                         weatherDataDtoList.Add(historicWeatherDataToFileDto);
 
-                        //if(historicWeatherDataToFileDto.SunElevationAngle > 0)
-                        //{
-                        //    Debug.WriteLine(historicWeatherDataToFileDto.SunElevationAngle);
-                        //}
                     }
-
                 }
+                await Task.WhenAll(tasks);
 
-
-
-                //  listOfBinaryDataFromFileDto = await _crudFileRepository.FetchWeatherDataAsync(_baseDirectory, searchDto);
-
-
-                // return recorded CPU usage and memory usage
-                var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
-                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
-                string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
-
-                //for (int i = 0; i < listOfBinaryDataFromFileDto.Count; i++)
-                //{
-                //    string[] coordinateParts = listOfBinaryDataFromFileDto[i].Coordinates.Split('-');
-
-
-                //    WeatherDataFileDto weatherDataFileDto = _binaryConversionManager.ConvertBinaryDataToWeatherDataFileDto(listOfBinaryDataFromFileDto[i].BinaryWeatherData);
-
-                //    for (int j = 0; j < weatherDataFileDto.Time.Length; j++)
-                //    {
-                //        WeatherDataDto weatherDataDto = new WeatherDataDto();
-                //        weatherDataDto.Address = listOfBinaryDataFromFileDto[i].Address;
-                //        weatherDataDto.Latitude = coordinateParts[0];
-                //        weatherDataDto.Longitude = coordinateParts[1];
-                //        weatherDataDto.TemperatureC = weatherDataFileDto.Temperature_2m[j];
-                //        weatherDataDto.RelativeHumidity = weatherDataFileDto.Relative_Humidity_2m[j];
-                //        weatherDataDto.Rain = weatherDataFileDto.Rain[j];
-                //        weatherDataDto.WindSpeed = weatherDataFileDto.Wind_Speed_10m[j];
-                //        weatherDataDto.WindDirection = weatherDataFileDto.Wind_Direction_10m[j];
-                //        weatherDataDto.WindGust = weatherDataFileDto.Wind_Gusts_10m[j];
-                //        weatherDataDto.GlobalTiltedIrRadiance = weatherDataFileDto.Global_Tilted_Irradiance_Instant[j];
-                //      weatherDataDto.DateAndTime = DateTime.ParseExact(string.Concat(listOfBinaryDataFromFileDto[i].YearDate, weatherDataFileDto.Time[j]), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
-                //        weatherDataDtoList.Add(weatherDataDto);
-                //    }
-                //}
-
-                //for (int i = 0; i < weatherDataDtoList.Count; i++)
-                //{
-                //    weatherDataDtoList[i] = _solarPositionManager.CalculateSunAngles(weatherDataDtoList[i]);
-                //}
                 metaDataDto.WeatherData = weatherDataDtoList;
 
+                // return recorded CPU usage and memory usage
+                var convertionCpuResult = _utilityManager.StopMeasureCPU(convertionCpuTimeBefore, convertionStopwatch);
+                var convertionByteMemory = _utilityManager.StopMeasureMemory(convertionCurrentBytes);
+                string convertionMeasuredRamUsage = _utilityManager.ConvertBytesToFormat(convertionByteMemory);
+
+
                 //calculate amount of data
-                int weatherDataInBytes = _utilityManager.GetModelSize(metaDataDto.WeatherData);
                 int metaDataModelInBytes = _utilityManager.GetModelSize(metaDataDto);
-                int totalBytes = metaDataModelInBytes + weatherDataInBytes;
+                int totalBytes = metaDataModelInBytes;
                 string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
 
                 //map measurements to model
                 metaDataDto.DataLoadedMB = dataCollectedInMB;
-                metaDataDto.FetchDataTimer = cpuResult.ElapsedTimeMs;
+                metaDataDto.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(cpuResult.ElapsedTimeMs);
                 metaDataDto.CpuUsage = cpuResult.CpuUsage;
                 metaDataDto.RamUsage = measuredRamUsage;
+                metaDataDto.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(convertionCpuResult.ElapsedTimeMs);
+                metaDataDto.ConvertionCpuUsage = convertionCpuResult.CpuUsage;
+                metaDataDto.ConvertionRamUsage = convertionMeasuredRamUsage;
 
                 return metaDataDto;
             }
