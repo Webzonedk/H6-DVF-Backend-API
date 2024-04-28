@@ -223,7 +223,7 @@ namespace DVF_API.Services.ServiceImplementation
                        
                         WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto()
                         {
-                             DateAndTime = DateTime.ParseExact(string.Concat(year[0], time), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
+                             DateAndTime = DateTime.ParseExact(string.Concat(year[0], time.ToString()), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
                             Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}",
                             Latitude = locations[Id].Latitude,
                             Longitude = locations[Id].Longitude,
