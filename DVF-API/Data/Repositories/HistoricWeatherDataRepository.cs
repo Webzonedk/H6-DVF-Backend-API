@@ -306,19 +306,19 @@ namespace DVF_API.Data.Repositories
                         string locationKey = $"{data.Latitude},{data.Longitude}";
                         if (locationDictionary.TryGetValue(locationKey, out int locationId))
                         {
-                            var weatherData = data.HistoricWeatherData.Hourly;
-                            for (int i = 0; i < weatherData.Time.Length; i++)
+                            var weatherData = data.HistoricWeatherData;
+                            for (int i = 0; i < weatherData.Hourly.Time.Length; i++)
                             {
 
-                                DateTime parsedDate = DateTime.ParseExact(weatherData.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+                                DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
                                 dataTable.Rows.Add(
-                                    Math.Round(weatherData.Temperature_2m[i], 2),
-                                    Math.Round(weatherData.Wind_Speed_10m[i], 2),
-                                    Math.Round(weatherData.Wind_Direction_10m[i], 2),
-                                    Math.Round(weatherData.Wind_Gusts_10m[i], 2),
-                                    Math.Round(weatherData.Relative_Humidity_2m[i], 2),
-                                    Math.Round(weatherData.Rain[i], 2),
-                                    Math.Round(weatherData.Global_Tilted_Irradiance_Instant[i], 2),
+                                    Math.Round(weatherData.Hourly.Temperature_2m[i], 2),
+                                    Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
+                                    Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
+                                    Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
+                                    Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
+                                    Math.Round(weatherData.Hourly.Rain[i], 2),
+                                    Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
                                     parsedDate,
                                     locationId,
                                     false

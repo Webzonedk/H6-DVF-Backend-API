@@ -2,6 +2,7 @@
 {
     public class HistoricWeatherDataDto
     {
+
         public HourlyData Hourly { get; set; }
     }
 
@@ -18,6 +19,7 @@
         public float[] Wind_Direction_10m { get; set; }
         public float[] Wind_Gusts_10m { get; set; }
         public float[] Global_Tilted_Irradiance_Instant { get; set; }
+
     }
 
 }

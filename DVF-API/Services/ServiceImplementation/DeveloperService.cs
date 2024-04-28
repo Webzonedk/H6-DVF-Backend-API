@@ -5,6 +5,7 @@ using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -15,14 +16,11 @@ namespace DVF_API.Services.ServiceImplementation
         #region fields
         private readonly HttpClient _httpClient = new HttpClient();
 
-        //private string _baseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "weatherData\\");
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
         private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
 
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
-        private DateTime startDate = new DateTime(2024, 04, 01);
-        private DateTime endDate = new DateTime(2024, 04, 01);
 
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
@@ -37,7 +35,11 @@ namespace DVF_API.Services.ServiceImplementation
 
         #region Constructors
 
-        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository, IUtilityManager utilityManager, ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository, ILocationRepository locationRepository)
+        public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository,
+            IUtilityManager utilityManager,
+            ICrudDatabaseRepository databaseRepository,
+            ICrudFileRepository fileRepository,
+            ILocationRepository locationRepository)
         {
             _historicWeatherDataRepository = historicWeatherDataRepository;
             _utilityManager = utilityManager;
@@ -109,19 +111,24 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 if (createDB)
                 {
-                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
+                    int batchSize = 200;
+                    for (int i = 0; i < saveToStorageDtos.Count; i += batchSize)
+                    {
+                        List<SaveToStorageDto> batch = saveToStorageDtos.Skip(i).Take(batchSize).ToList();
 
+                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(batch);
+                    }
                 }
                 if (createFiles)
                 {
                     try
                     {
-                    await CreateWeatherDataAndSendItToRepository(saveToStorageDtos);
+                        await CreateWeatherDataAndSendItToRepository(saveToStorageDtos);
                     }
                     finally
                     {
-                    saveToStorageDtos.Clear();
-                    _utilityManager.CleanUpRessources();
+                        saveToStorageDtos.Clear();
+                        _utilityManager.CleanUpRessources();
                     }
                 }
             }
@@ -251,7 +258,6 @@ namespace DVF_API.Services.ServiceImplementation
                     }));
                 }
                 await Task.WhenAll(tasks);
-                tasks.Clear();
                 timeSplitCache.Clear();
                 groupedData.Clear();
             }
@@ -309,7 +315,6 @@ namespace DVF_API.Services.ServiceImplementation
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                jsonData = null;
                 if (originalWeatherDataFromAPI != null)
                 {
                     await ProcessAllCoordinates(saveToStorageDtos, originalWeatherDataFromAPI, locationCoordinatesWithId);
@@ -360,6 +365,11 @@ namespace DVF_API.Services.ServiceImplementation
                             }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error in ProcessAllCoordinartes: {ex.Message} ---------------------------------");
+                        // Ready for logging
+                    }
                     finally
                     {
                         semaphore.Release();
@@ -367,7 +377,6 @@ namespace DVF_API.Services.ServiceImplementation
                 }));
             }
             await Task.WhenAll(tasks);
-            tasks.Clear(); 
         }
 
 
