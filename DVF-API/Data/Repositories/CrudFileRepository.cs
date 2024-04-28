@@ -86,69 +86,76 @@ namespace DVF_API.Data.Repositories
         private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(List<BinarySearchInFilesDto> binarySearchInFilesDtos)
         {
 
-            try
+            List<Task> tasks = new List<Task>();
+            object lockObject = new object();
+            SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
+
+
+            List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+            foreach (var file in binarySearchInFilesDtos)
             {
-                List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
-                foreach (var file in binarySearchInFilesDtos)
+                tasks.Add(Task.Run(async () =>
                 {
-                    //skip if filepath does not exists
-                    if (!File.Exists(file.FilePath))
-                    {
-                        Debug.WriteLine($"filepath: {file.FilePath} does not exists");
-                    }
-                    using (FileStream stream = new FileStream(file.FilePath!, FileMode.Open, FileAccess.Read))
-                    {
-                        // Seek to the start byte position
-                        stream.Seek(file.FromByte, SeekOrigin.Begin);
+                    await semaphore.WaitAsync();
 
-                        // Calculate the number of bytes to read
-                        int bytesRead = (int)(file.ToByte - file.FromByte);
-
-                        // Read the bytes into a buffer
-                        byte[] buffer = new byte[bytesRead];
-                        int bytesReadTotal = stream.Read(buffer, 0, bytesRead);
-                        if (bytesReadTotal != bytesRead)
+                    try
+                    {
+                        //skip if filepath does not exists
+                        if (File.Exists(file.FilePath))
                         {
-                            // Not all bytes were read
-                            throw new IOException("Not all bytes were read.");
+                            using (FileStream stream = new FileStream(file.FilePath!, FileMode.Open, FileAccess.Read))
+                            {
+                                // Seek to the start byte position
+                                stream.Seek(file.FromByte, SeekOrigin.Begin);
+
+                                // Calculate the number of bytes to read
+                                int bytesRead = (int)(file.ToByte - file.FromByte);
+
+                                // Read the bytes into a buffer
+                                byte[] buffer = new byte[bytesRead];
+                                int bytesReadTotal = stream.Read(buffer, 0, bytesRead);
+                                if (bytesReadTotal != bytesRead)
+                                {
+                                    // Not all bytes were read
+                                    throw new IOException("Not all bytes were read.");
+                                }
+
+                                BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
+                                {
+                                    BinaryWeatherData = buffer,
+                                    YearDate = file.FilePath
+
+                                };
+
+                                lock (lockObject)
+                                {
+                                    binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+                                }
+                            }
                         }
 
-
-                        //int bytesReadTotal = 0;
-                        //while (bytesReadTotal < bytesRead)
-                        //{
-                        //    int bytesReadNow = stream.Read(buffer, bytesReadTotal, bytesRead - bytesReadTotal);
-                        //    if (bytesReadNow == 0)
-                        //    {
-                        //        // End of stream reached before reading all bytes
-                        //        throw new IOException("End of stream reached prematurely.");
-                        //    }
-                        //    bytesReadTotal += bytesReadNow;
-                        //}
-
-
-
-
-
-                        BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
-                        {
-                            BinaryWeatherData = buffer,
-                            YearDate = file.FilePath
-
-                        };
-
-                        binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine(e);
 
                     }
-                }
-              
-                return binaryDataFromFileDtos;
-            }
-            catch (Exception)
-            {
 
-                throw;
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+
+
+                }));
+
             }
+
+            await Task.WhenAll(tasks);
+            tasks.Clear();
+            binarySearchInFilesDtos.Clear();
+            return binaryDataFromFileDtos;
+
 
         }
 
