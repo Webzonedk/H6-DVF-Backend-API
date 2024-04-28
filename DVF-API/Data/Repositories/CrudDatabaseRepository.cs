@@ -51,23 +51,43 @@ namespace DVF_API.Data.Repositories
             {
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
-                // Split coordinates into latitude and longitude lists
-                var latitudes = searchDto.Coordinates.Select(c => c.Split('-')[0]);
-                var longitudes = searchDto.Coordinates.Select(c => c.Split('-')[1]);
+                string query = "";
+                if(searchDto.Coordinates.Count > 0)
+                {
 
-                // Format the latitude and longitude lists as comma-separated strings
-                string latitudeValues = string.Join(",", latitudes.Select(lat => $"'{lat}'"));
-                string longitudeValues = string.Join(",", longitudes.Select(lon => $"'{lon}'"));
+                    // Split coordinates into latitude and longitude lists
+                    var latitudes = searchDto.Coordinates.Select(c => c.Split('-')[0]);
+                    var longitudes = searchDto.Coordinates.Select(c => c.Split('-')[1]);
 
-                string query = "SELECT WD.*, C.CityName, C.PostalCode, L.StreetName, L.StreetNumber, L.Latitude, L.Longitude" +
-                    " FROM WeatherDatas WD" +
-                    " JOIN Locations L ON WD.LocationId = L.LocationId" +
-                    " JOIN Cities C ON L.CityId = C.CityId" +
-                    " WHERE WD.DateAndTime >= @FromDate" +
-                    " AND WD.DateAndTime <= @ToDate" +
-                    $" AND L.Latitude IN ({latitudeValues})" +
-                    $" AND L.Longitude IN ({longitudeValues})" +
-                    " AND WD.IsDeleted = 0";
+                    // Format the latitude and longitude lists as comma-separated strings
+                    string latitudeValues = string.Join(",", latitudes.Select(lat => $"'{lat}'"));
+                    string longitudeValues = string.Join(",", longitudes.Select(lon => $"'{lon}'"));
+
+                    query = "SELECT WD.*, C.CityName, C.PostalCode, L.StreetName, L.StreetNumber, L.Latitude, L.Longitude" +
+                  " FROM WeatherDatas WD" +
+                  " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                  " JOIN Cities C ON L.CityId = C.CityId" +
+                  " WHERE WD.DateAndTime >= @FromDate" +
+                  " AND WD.DateAndTime <= @ToDate" +
+                  $" AND L.Latitude IN ({latitudeValues})" +
+                  $" AND L.Longitude IN ({longitudeValues})" +
+                  " AND WD.IsDeleted = 0";
+                }
+                else
+                {
+                    query = "SELECT WD.*, C.CityName, C.PostalCode, L.StreetName, L.StreetNumber, L.Latitude, L.Longitude" +
+                  " FROM WeatherDatas WD" +
+                  " JOIN Locations L ON WD.LocationId = L.LocationId" +
+                  " JOIN Cities C ON L.CityId = C.CityId" +
+                  " WHERE WD.DateAndTime >= @FromDate" +
+                  " AND WD.DateAndTime <= @ToDate" +
+                  " AND WD.IsDeleted = 0";
+                }
+
+
+                
+
+               
 
                 await using SqlCommand command = new SqlCommand(query, connection);
                 List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
@@ -494,6 +514,7 @@ namespace DVF_API.Data.Repositories
 
                                 binaryDataFromFileDtos.Add(binaryDataFromFileDto);
                             }
+                            result.CloseAsync();
 
                         }
                         catch (Exception ex)
