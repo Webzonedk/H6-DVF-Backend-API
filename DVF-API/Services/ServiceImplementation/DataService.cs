@@ -181,8 +181,8 @@ namespace DVF_API.Services.ServiceImplementation
 
                 var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtos);
 
-                Dictionary<int, LocationDto> locations = new Dictionary<int, LocationDto>();
-                
+                Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
+
                 //get all cooordinates
                 if (totalCoordinates == 0)
                 {
@@ -207,23 +207,25 @@ namespace DVF_API.Services.ServiceImplementation
                     locations.Add(locationId, locationDto);
                 }
 
-               // List<WeatherDataDto> weatherDataDtos = new List<WeatherDataDto>();
+                // List<WeatherDataDto> weatherDataDtos = new List<WeatherDataDto>();
                 foreach (var weatherDataBlock in result)
                 {
                     using (MemoryStream memoryStream = new MemoryStream(weatherDataBlock.BinaryWeatherData))
                     using (BinaryReader binaryReader = new BinaryReader(memoryStream, Encoding.UTF8))
                     {
-                        int Id = binaryReader.ReadInt32();
-                        float time = binaryReader.ReadInt32();
+                        long Id = binaryReader.ReadInt64();
+                        float time = binaryReader.ReadSingle();
 
-                        var splittedString = weatherDataBlock.YearDate.Split("/");
-                        string secondSplit = splittedString[splittedString.Length - 1];
-                        var year = secondSplit.Split('\\');
 
-                       
+
+
+                        string date = Path.GetFileNameWithoutExtension(weatherDataBlock.YearDate);
+                        string year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.YearDate));
+
+
                         WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto()
                         {
-                             DateAndTime = DateTime.ParseExact(string.Concat(year[0], time.ToString()), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
+                            DateAndTime = DateTime.ParseExact(string.Concat(year, date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
                             Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}",
                             Latitude = locations[Id].Latitude,
                             Longitude = locations[Id].Longitude,

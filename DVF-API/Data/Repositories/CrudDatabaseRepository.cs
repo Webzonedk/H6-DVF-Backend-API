@@ -522,13 +522,13 @@ namespace DVF_API.Data.Repositories
 
         }
 
-        public async Task<Dictionary<int,LocationDto>> GetAllLocationCoordinates()
+        public async Task<Dictionary<long,LocationDto>> GetAllLocationCoordinates()
         {
             return await FetchAllLocationCoordinates();
         }
 
 
-        private async Task<Dictionary<int, LocationDto>> FetchAllLocationCoordinates()
+        private async Task<Dictionary<long, LocationDto>> FetchAllLocationCoordinates()
         {
             try
             {
@@ -540,7 +540,7 @@ namespace DVF_API.Data.Repositories
 
                 //command.Parameters.AddWithValue("@fromIndex", fromIndex);
                 //command.Parameters.AddWithValue("@toIndex", toIndex);
-               Dictionary<int,LocationDto> locationDtos = new Dictionary<int,LocationDto>();
+               Dictionary<long,LocationDto> locationDtos = new Dictionary<long,LocationDto>();
                 try
                 {
                   
@@ -549,7 +549,7 @@ namespace DVF_API.Data.Repositories
                     {
 
                         // string coordinate = $"{latitude}-{longitude}";
-                        int id = result.GetInt32(result.GetOrdinal("LocationId"));
+                        long id = result.GetInt32(result.GetOrdinal("LocationId"));
                         LocationDto locationDto = new LocationDto()
                         {
 
