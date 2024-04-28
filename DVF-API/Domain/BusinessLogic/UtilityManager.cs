@@ -76,15 +76,7 @@ namespace DVF_API.Domain.BusinessLogic
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
-
-            Process currentProcess = Process.GetCurrentProcess();
-            foreach (Process process in Process.GetProcessesByName(currentProcess.ProcessName))
-            {
-                if (process.Id != currentProcess.Id)
-                {
-                    process.Kill();
-                }
-            }
+            GC.Collect();
         }
 
 

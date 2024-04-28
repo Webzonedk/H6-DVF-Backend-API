@@ -5,10 +5,6 @@ using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Net.Http;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -23,8 +19,6 @@ namespace DVF_API.Services.ServiceImplementation
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
         private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
 
-        //private string _coordinatesFilePath = "..\\DVF-API\\Sources\\UniqueCoordinatesSelected.json";
-        private string _coordinatesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "UniqueCoordinatesSelected.json");
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
         private DateTime startDate = new DateTime(2024, 04, 01);
@@ -104,26 +98,31 @@ namespace DVF_API.Services.ServiceImplementation
         {
             try
             {
-                List<SaveToStorageDto> saveToStorageDto = new List<SaveToStorageDto>();
+                List<SaveToStorageDto> saveToStorageDtos = new List<SaveToStorageDto>();
 
-                Dictionary<int, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
-                await RetreiveProcessWeatherData(saveToStorageDto, _latitude, _longitude, startDate, endDate, _coordinatesFilePath, locationCoordinatesWithId);
+                Dictionary<int, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647); // ca 1,2 seconds
+                await RetreiveProcessWeatherData(saveToStorageDtos, _latitude, _longitude, startDate, endDate, locationCoordinatesWithId);// ca. 2,9 seconds
 
-                if (saveToStorageDto == null)
+                if (saveToStorageDtos == null)
                 {
                     return;
                 }
-
                 if (createDB)
                 {
-                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDto);
+                    //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
 
                 }
                 if (createFiles)
                 {
-                    await MapDataToSaveToStorageDtoToByteArrayAndSendItToRepository(saveToStorageDto);
-                    // await _historicWeatherDataRepository.SaveDataToFileAsync(saveToStorageDto, _baseDirectory);
-
+                    try
+                    {
+                    await CreateWeatherDataAndSendItToRepository(saveToStorageDtos);
+                    }
+                    finally
+                    {
+                    saveToStorageDtos.Clear();
+                    _utilityManager.CleanUpRessources();
+                    }
                 }
             }
             catch (Exception ex)
@@ -134,107 +133,174 @@ namespace DVF_API.Services.ServiceImplementation
         }
 
 
-        private async Task MapDataToSaveToStorageDtoToByteArrayAndSendItToRepository(List<SaveToStorageDto> _saveToStorageDto)
+
+
+        private async Task CreateWeatherDataAndSendItToRepository(List<SaveToStorageDto> saveToStorageDtos)
         {
-            ConcurrentBag<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+            List<HistoricWeatherDataToFileDto> historicWeatherDataToFileDtos = new List<HistoricWeatherDataToFileDto>();
 
-            Parallel.ForEach(_saveToStorageDto, data =>
+            List<Task> tasks = new List<Task>();
+            object lockObject = new object();
+            SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
+
+            foreach (var data in saveToStorageDtos)
             {
-                try
+                tasks.Add(Task.Run(async () =>
                 {
-                    for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
+                    await semaphore.WaitAsync();
+                    try
                     {
-                        HistoricWeatherDataToFileDto historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                        for (int index = 0; index < data.HistoricWeatherData.Hourly.Time.Length; index++)
                         {
-                            Id = data.LocationId,
-                            Latitude = _utilityManager.ConvertCoordinate(data.Latitude),
-                            Longitude = _utilityManager.ConvertCoordinate(data.Longitude),
-                            Time = _utilityManager.ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
-                            Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
-                            Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
-                            Rain = data.HistoricWeatherData.Hourly.Rain[index],
-                            Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
-                            Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
-                            Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
-                            Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
-                        };
-                        historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"{ex.Message}");
-                }
-            });
+                            var historicWeatherDataToFileDto = new HistoricWeatherDataToFileDto
+                            {
+                                Id = data.LocationId,
+                                Time = _utilityManager.ConvertDateTimeToFloatInternal(data.HistoricWeatherData.Hourly.Time[index]),
+                                Temperature_2m = data.HistoricWeatherData.Hourly.Temperature_2m[index],
+                                Relative_Humidity_2m = data.HistoricWeatherData.Hourly.Relative_Humidity_2m[index],
+                                Rain = data.HistoricWeatherData.Hourly.Rain[index],
+                                Wind_Speed_10m = data.HistoricWeatherData.Hourly.Wind_Speed_10m[index],
+                                Wind_Direction_10m = data.HistoricWeatherData.Hourly.Wind_Direction_10m[index],
+                                Wind_Gusts_10m = data.HistoricWeatherData.Hourly.Wind_Gusts_10m[index],
+                                Global_Tilted_Irradiance_Instant = data.HistoricWeatherData.Hourly.Global_Tilted_Irradiance_Instant[index]
+                            };
 
-            var groupedData = historicWeatherDataToFileDtos.GroupBy(dto => _utilityManager.MixedYearDateTimeSplitter(dto.Time)[0]).ToList();
-            historicWeatherDataToFileDtos = new ConcurrentBag<HistoricWeatherDataToFileDto>();
+                            lock (lockObject)
+                            {
+                                historicWeatherDataToFileDtos.Add(historicWeatherDataToFileDto);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"{ex.Message}");
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
+            }
+            await Task.WhenAll(tasks);
+            tasks.Clear();
+
+            ConcurrentDictionary<double, (string, float)> timeSplitCache = new ConcurrentDictionary<double, (string, float)>();
+
+            var groupedData = historicWeatherDataToFileDtos
+                              .AsParallel()
+                              .WithDegreeOfParallelism(Environment.ProcessorCount - 4)
+                              .GroupBy(dto =>
+                              {
+                                  var key = timeSplitCache.GetOrAdd(dto.Time, time =>
+                                  {
+                                      var split = _utilityManager.MixedYearDateTimeSplitter(time);
+                                      return (split[0].ToString(), (float)split[1]);
+                                  });
+                                  return key.Item1;
+                              })
+                              .ToList();
+
+            historicWeatherDataToFileDtos.Clear();
 
             try
             {
-                for (int i = 0; i < groupedData.Count; i++)
+                tasks = new List<Task>();
+                lockObject = new object();
+                semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
+                foreach (var group in groupedData)
                 {
-                    var orderedList = groupedData[i].OrderBy(x => x.Id).ThenBy(x => _utilityManager.MixedYearDateTimeSplitter(x.Time)[1]).ToList();
-                    var byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
-                    orderedList.Clear();
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        await semaphore.WaitAsync();
+                        try
+                        {
+                            var orderedList = group
+                                              .OrderBy(x => x.Id)
+                                              .ThenBy(x =>
+                                              {
+                                                  var hourMinute = timeSplitCache.GetOrAdd(x.Time, time =>
+                                                  {
+                                                      var splitResults = _utilityManager.MixedYearDateTimeSplitter(time);
+                                                      return (splitResults[0].ToString(), (float)splitResults[1]);
+                                                  });
+                                                  return hourMinute.Item2;
+                                              })
+                                              .ToList();
 
-                    string date = _utilityManager.MixedYearDateTimeSplitter(groupedData[i].First().Time)[0].ToString()!; // Full date YYYYMMDD
-                    var year = date.Substring(0, 4);
-                    var monthDay = date.Substring(4, 4);
-                    var yearDirectory = Path.Combine(_baseDirectory, year);
-                    Directory.CreateDirectory(yearDirectory);
-                    var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+                            byte[] byteArrayToSaveToFile = ConvertModelToBytesArray(orderedList);
+                            orderedList.Clear();
 
-                    await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, byteArrayToSaveToFile);
-                    groupedData.RemoveAt(i--);
+                            string date = _utilityManager.MixedYearDateTimeSplitter(group.First().Time)[0].ToString()!; // Full date YYYYMMDD
+                            var year = date.Substring(0, 4);
+                            var monthDay = date.Substring(4, 4);
+                            var yearDirectory = Path.Combine(_baseDirectory, year);
+                            Directory.CreateDirectory(yearDirectory);
+                            var fileName = Path.Combine(yearDirectory, $"{monthDay}.bin");
+
+                            await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, byteArrayToSaveToFile);
+                            byteArrayToSaveToFile = Array.Empty<byte>();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error in converting and saving loop{ex.Message}");
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    }));
                 }
-                groupedData = null;
+                await Task.WhenAll(tasks);
+                tasks.Clear();
+                timeSplitCache.Clear();
+                groupedData.Clear();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"{ex.Message}");
             }
+
         }
+
+
+
 
         private byte[] ConvertModelToBytesArray(List<HistoricWeatherDataToFileDto> orderedList)
         {
-            using (var memoryStream = new MemoryStream())
+
+            using (MemoryStream stream = new MemoryStream())
             {
-                using (MemoryStream stream = new MemoryStream())
+                using (BinaryWriter binaryWriter = new BinaryWriter(stream))
                 {
-                    using (BinaryWriter binaryWriter = new BinaryWriter(stream))
+                    try
                     {
-                        try
+                        foreach (var groupItem in orderedList)
                         {
-                            foreach (var groupItem in orderedList)
-                            {
-                                binaryWriter.Write(groupItem.Id);
-                                //binaryWriter.Write(groupItem.Latitude);
-                                //binaryWriter.Write(groupItem.Longitude);
-                                binaryWriter.Write((float)_utilityManager.MixedYearDateTimeSplitter(groupItem.Time)[1]);
-                                binaryWriter.Write(groupItem.Temperature_2m);
-                                binaryWriter.Write(groupItem.Relative_Humidity_2m);
-                                binaryWriter.Write(groupItem.Rain);
-                                binaryWriter.Write(groupItem.Wind_Speed_10m);
-                                binaryWriter.Write(groupItem.Wind_Direction_10m);
-                                binaryWriter.Write(groupItem.Wind_Gusts_10m);
-                                binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            // Ready for logging
+                            binaryWriter.Write(groupItem.Id);
+                            binaryWriter.Write((float)_utilityManager.MixedYearDateTimeSplitter(groupItem.Time)[1]);
+                            binaryWriter.Write(groupItem.Temperature_2m);
+                            binaryWriter.Write(groupItem.Relative_Humidity_2m);
+                            binaryWriter.Write(groupItem.Rain);
+                            binaryWriter.Write(groupItem.Wind_Speed_10m);
+                            binaryWriter.Write(groupItem.Wind_Direction_10m);
+                            binaryWriter.Write(groupItem.Wind_Gusts_10m);
+                            binaryWriter.Write(groupItem.Global_Tilted_Irradiance_Instant);
                         }
                     }
-                    return stream.ToArray();
+                    catch (Exception)
+                    {
+                        // Ready for logging
+                    }
                 }
+                return stream.ToArray();
             }
         }
 
 
 
 
-        private async Task<List<SaveToStorageDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> _saveToStorageDto, string latitude, string longitude, DateTime startDate, DateTime endDate, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)
+
+        private async Task RetreiveProcessWeatherData(List<SaveToStorageDto> saveToStorageDtos, string latitude, string longitude, DateTime startDate, DateTime endDate, Dictionary<int, string> locationCoordinatesWithId)
         {
             try
             {
@@ -243,54 +309,65 @@ namespace DVF_API.Services.ServiceImplementation
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
+                jsonData = null;
                 if (originalWeatherDataFromAPI != null)
                 {
-                    ProcessAllCoordinates(_saveToStorageDto, originalWeatherDataFromAPI, coordinatesFilePath, locationCoordinatesWithId);
-
+                    await ProcessAllCoordinates(saveToStorageDtos, originalWeatherDataFromAPI, locationCoordinatesWithId);
                 }
                 else
                 {
-
-                    return _saveToStorageDto = new List<SaveToStorageDto>();
+                    saveToStorageDtos = new List<SaveToStorageDto>();
                 }
             }
             catch (Exception ex)
             {
                 // Ready for logging
             }
-            return _saveToStorageDto;
         }
 
 
 
 
-        private void ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDto, HistoricWeatherDataDto originalWeatherDataFromAPI, string coordinatesFilePath, Dictionary<int, string> locationCoordinatesWithId)
+        private async Task ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDtos, HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<int, string> locationCoordinatesWithId)
         {
-            try
-            {
-                foreach (KeyValuePair<int, string> keyValuePair in locationCoordinatesWithId)
-                {
-                    string[] parts = keyValuePair.Value.Split('-');
 
-                    HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
-                    if (modifiedData != null)
-                    {
-                        SaveToStorageDto saveToFileDto = new SaveToStorageDto
-                        {
-                            HistoricWeatherData = modifiedData,
-                            Latitude = parts[0],
-                            Longitude = parts[1],
-                            LocationId = keyValuePair.Key
-                        };
-                        saveToStorageDto.Add(saveToFileDto);
-                    }
-                }
-            }
-            catch (Exception ex)
+            List<Task> tasks = new List<Task>();
+            object lockObject = new object();
+
+            SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
+
+            foreach (KeyValuePair<int, string> keyValuePair in locationCoordinatesWithId)
             {
-                // Ready for logging
+                tasks.Add(Task.Run(async () =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        string[] parts = keyValuePair.Value.Split('-');
+                        HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
+                        if (modifiedData != null)
+                        {
+                            SaveToStorageDto saveToFileDto = new SaveToStorageDto
+                            {
+                                HistoricWeatherData = modifiedData,
+                                Latitude = parts[0],
+                                Longitude = parts[1],
+                                LocationId = keyValuePair.Key
+                            };
+                            lock (lockObject)
+                            {
+                                saveToStorageDtos.Add(saveToFileDto);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
             }
+            await Task.WhenAll(tasks);
+            tasks.Clear(); 
         }
 
 
@@ -298,12 +375,12 @@ namespace DVF_API.Services.ServiceImplementation
 
         private HistoricWeatherDataDto? ModifyData(HistoricWeatherDataDto? originalData)
         {
+            if (originalData == null)
+            {
+                return null;
+            }
             try
             {
-                if (originalData == null)
-                {
-                    return null;
-                }
                 var random = new Random();
                 HistoricWeatherDataDto modifiedData = new HistoricWeatherDataDto
                 {
