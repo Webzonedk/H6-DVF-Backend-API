@@ -220,7 +220,7 @@ namespace DVF_API.Services.ServiceImplementation
                 long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
 
                 //get all cooordinates
-                if (totalCoordinates == 0)
+                if (totalCoordinates != 1)
                 {
                     locations = await _locationRepository.GetAllLocationCoordinates();
                 }
