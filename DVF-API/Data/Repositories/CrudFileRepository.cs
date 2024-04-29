@@ -36,7 +36,7 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public async Task<BinaryWeatherStructDto[]> FetchWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        public async Task<Dictionary<string, BinaryWeatherStructDto>> FetchWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
             return await ReadWeatherDataAsync(binarySearchInFilesDtos);
         }
@@ -79,7 +79,7 @@ namespace DVF_API.Data.Repositories
         }
 
 
-        private async Task<BinaryWeatherStructDto[]> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        private async Task<Dictionary<string, BinaryWeatherStructDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
 
             List<Task> tasks = new List<Task>();
@@ -92,9 +92,9 @@ namespace DVF_API.Data.Repositories
             long keyCount = binarySearchInFilesDtos.Keys.Count;
             long listLength = binarySearchInFilesDtos.Values.First().Count;
             long singleBufferSize = listLength * 960;
-            long strucIndex = 0;
             int totalSize = 0;
-
+           
+            
 
             // Iterate over each file to calculate the total size
             foreach (var file in binarySearchInFilesDtos)
@@ -106,10 +106,9 @@ namespace DVF_API.Data.Repositories
             // Calculate the number of structs based on the total size
             int structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
             int numStructs = totalSize / structSize;
-            BinaryWeatherStructDto[] binaryWeatherStructDtos = new BinaryWeatherStructDto[numStructs];
-
-
+            Dictionary<string, BinaryWeatherStructDto> binaryWeatherStructDtos = new Dictionary<string, BinaryWeatherStructDto>();
            
+
             foreach (var file in binarySearchInFilesDtos)
             {
                 tasks.Add(Task.Run(async () =>
@@ -139,11 +138,11 @@ namespace DVF_API.Data.Repositories
                                             throw new IOException("Not all bytes were read.");
                                         }
 
-                                        BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
-                                        {
-                                            BinaryWeatherData = buffer.AsSpan(0, bytesRead).ToArray(), // Create a copy of the data read
-                                            YearDate = file.Key
-                                        };
+                                        //BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
+                                        //{
+                                        //    BinaryWeatherData = buffer.AsSpan(0, bytesRead).ToArray(), // Create a copy of the data read
+                                        //    YearDate = file.Key
+                                        //};
 
                                         BinaryWeatherStructDto binaryWeatherStructDto = new BinaryWeatherStructDto();
 
@@ -155,13 +154,14 @@ namespace DVF_API.Data.Repositories
                                             {
                                                 binaryWeatherStructDto.BinaryWeatherDataByteArray[i] = buffer[i];
                                             }
+
+
                                         }
 
                                         lock (lockObject)
                                         {
-                                            binaryWeatherStructDtos[strucIndex] = binaryWeatherStructDto;
+                                            binaryWeatherStructDtos.Add(file.Key, binaryWeatherStructDto);
 
-                                            strucIndex++;
                                         }
                                     }
                                     finally
@@ -193,7 +193,7 @@ namespace DVF_API.Data.Repositories
         }
 
 
-        
+
 
 
 

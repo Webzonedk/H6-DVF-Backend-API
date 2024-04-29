@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -244,40 +245,43 @@ namespace DVF_API.Services.ServiceImplementation
                 }
 
                 List<Task> tasks = new List<Task>();
-                foreach (var weatherDataBlock in result)
+                long Id = 0;
+                float time = 0;
+                string _date = "";
+                string? _year = "";
+                unsafe
                 {
-                    using (MemoryStream memoryStream = new MemoryStream(weatherDataBlock.BinaryWeatherData))
-                    using (BinaryReader binaryReader = new BinaryReader(memoryStream, Encoding.UTF8))
+                    foreach (var weatherDataBlock in result)
                     {
-                        long Id = binaryReader.ReadInt64();
-                        float time = binaryReader.ReadSingle();
+                        BinaryWeatherStructDto datablock = weatherDataBlock.Value;
+                        Id = datablock.LocationId;
+                        time = datablock.WeatherData[0];
+                        _date = Path.GetFileNameWithoutExtension(weatherDataBlock.Key);
+                        _year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.Key));
 
-                        string date = Path.GetFileNameWithoutExtension(weatherDataBlock.YearDate);
-                        string year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.YearDate));
+                        WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
 
+                        historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(_year, _date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                        historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
+                        historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
+                        historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
+                        historicWeatherDataToFileDto.TemperatureC = datablock.WeatherData[0];
+                        historicWeatherDataToFileDto.RelativeHumidity = datablock.WeatherData[1];
+                        historicWeatherDataToFileDto.Rain = datablock.WeatherData[2];
+                        historicWeatherDataToFileDto.WindSpeed = datablock.WeatherData[3];
+                        historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
+                        historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
+                        historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
 
-                        WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto()
-                        {
-                            DateAndTime = DateTime.ParseExact(string.Concat(year, date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture),
-                            Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}",
-                            Latitude = locations[Id].Latitude,
-                            Longitude = locations[Id].Longitude,
-                            TemperatureC = binaryReader.ReadSingle(),
-                            RelativeHumidity = binaryReader.ReadSingle(),
-                            Rain = binaryReader.ReadSingle(),
-                            WindSpeed = binaryReader.ReadSingle(),
-                            WindDirection = binaryReader.ReadSingle(),
-                            WindGust = binaryReader.ReadSingle(),
-                            GlobalTiltedIrRadiance = binaryReader.ReadSingle()
-                        };
 
                         WeatherDataDto weatherDataDtoCopy = historicWeatherDataToFileDto;
                         tasks.Add(Task.Run(() =>
                         {
                             _solarPositionManager.CalculateSunAngles(weatherDataDtoCopy);
                         }));
-                        // historicWeatherDataToFileDto = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto);
+
                         weatherDataDtoList.Add(historicWeatherDataToFileDto);
+
 
                     }
                 }
