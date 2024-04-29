@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -35,7 +36,7 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        public async Task<BinaryWeatherStructDto[]> FetchWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
             return await ReadWeatherDataAsync(binarySearchInFilesDtos);
         }
@@ -78,7 +79,7 @@ namespace DVF_API.Data.Repositories
         }
 
 
-        private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        private async Task<BinaryWeatherStructDto[]> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
         {
 
             List<Task> tasks = new List<Task>();
@@ -86,16 +87,29 @@ namespace DVF_API.Data.Repositories
             SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
 
 
-           
-            List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
+
+            // List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
             long keyCount = binarySearchInFilesDtos.Keys.Count;
             long listLength = binarySearchInFilesDtos.Values.First().Count;
-            // long bufferSize = keyCount * listLength * 960;
             long singleBufferSize = listLength * 960;
-            //  byte[] data = new byte[bufferSize];
-            //  ArrayPool<byte> bufferPool = ArrayPool<byte>.Shared;
-            // Dictionary<string, byte[]> BytesFromFileToOutput = new Dictionary<string, byte[]>();
-            ConcurrentDictionary<string, byte[]> BytesFromFileToOutputDictionary = new ConcurrentDictionary<string, byte[]>();
+            long strucIndex = 0;
+            int totalSize = 0;
+
+
+            // Iterate over each file to calculate the total size
+            foreach (var file in binarySearchInFilesDtos)
+            {
+                FileInfo fileInfo = new FileInfo(file.Key);
+                totalSize += (int)fileInfo.Length;
+            }
+
+            // Calculate the number of structs based on the total size
+            int structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
+            int numStructs = totalSize / structSize;
+            BinaryWeatherStructDto[] binaryWeatherStructDtos = new BinaryWeatherStructDto[numStructs];
+
+
+           
             foreach (var file in binarySearchInFilesDtos)
             {
                 tasks.Add(Task.Run(async () =>
@@ -110,6 +124,7 @@ namespace DVF_API.Data.Repositories
 
                             using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
                             {
+
                                 foreach (var byteRange in file.Value)
                                 {
                                     int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
@@ -130,31 +145,23 @@ namespace DVF_API.Data.Repositories
                                             YearDate = file.Key
                                         };
 
+                                        BinaryWeatherStructDto binaryWeatherStructDto = new BinaryWeatherStructDto();
+
+                                        //copy bytes to struct
+                                        unsafe
+                                        {
+
+                                            for (int i = 0; i < bytesReadTotal; i++)
+                                            {
+                                                binaryWeatherStructDto.BinaryWeatherDataByteArray[i] = buffer[i];
+                                            }
+                                        }
+
                                         lock (lockObject)
                                         {
-                                            binaryDataFromFileDtos.Add(binaryDataFromFileDto);
+                                            binaryWeatherStructDtos[strucIndex] = binaryWeatherStructDto;
 
-
-                                            //BytesFromFileToOutputDictionary.AddOrUpdate(file.Key, k => buffer, (k, existingValue) =>
-                                            //{
-                                            //    byte[] combinedValue = new byte[existingValue.Length + buffer.Length];
-                                            //    Buffer.BlockCopy(existingValue, 0, combinedValue, 0, existingValue.Length);
-                                            //    Buffer.BlockCopy(buffer, 0, combinedValue, existingValue.Length, buffer.Length);
-                                            //    return combinedValue;
-                                            //});
-
-
-
-
-                                            //if (BytesFromFileToOutputDictionary.ContainsKey(file.Key))
-                                            //{
-                                            //    byte[] currentByteArray = BytesFromFileToOutputDictionary[file.Key];
-                                            //    currentByteArray = currentByteArray.Concat(buffer).ToArray();
-                                            //    BytesFromFileToOutputDictionary[file.Key] = currentByteArray;
-                                            //}
-                                            //else
-                                            //{
-                                            //}
+                                            strucIndex++;
                                         }
                                     }
                                     finally
@@ -176,106 +183,17 @@ namespace DVF_API.Data.Repositories
                     }
                 }));
             }
-        
+
             await Task.WhenAll(tasks);
             tasks.Clear();
             binarySearchInFilesDtos.Clear();
-            return binaryDataFromFileDtos;
+            return binaryWeatherStructDtos;
 
 
         }
-    
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="baseDirectory"></param>
-        /// <param name="search"></param>
-        /// <returns></returns>
-        //private async Task<List<BinaryDataFromFileDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
-        //{
-
-        //    List<Task> tasks = new List<Task>();
-        //    object lockObject = new object();
-        //    SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
 
 
-
-
-        //    List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
-        //    foreach (var file in binarySearchInFilesDtos)
-        //    {
-
-        //        tasks.Add(Task.Run(async () =>
-        //        {
-        //            await semaphore.WaitAsync();
-
-        //            try
-        //            {
-        //                //skip if filepath does not exists
-        //                if (File.Exists(file.Key))
-        //                {
-        //                    Debug.WriteLine($"found filepath: {file.Key}---------------------");
-        //                    using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read,FileShare.Read,4096,true))
-        //                    {
-        //                        foreach (var byteRange in file.Value)
-        //                        {
-
-        //                            // Seek to the start byte position
-        //                            stream.Seek(byteRange.FromByte, SeekOrigin.Begin);
-
-        //                            // Calculate the number of bytes to read
-        //                            int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
-
-        //                            // Read the bytes into a buffer
-        //                            byte[] buffer = new byte[bytesRead];
-        //                            int bytesReadTotal = await stream.ReadAsync(buffer, 0, bytesRead);
-        //                            if (bytesReadTotal != bytesRead)
-        //                            {
-        //                                // Not all bytes were read
-        //                                throw new IOException("Not all bytes were read.");
-        //                            }
-
-        //                            BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
-        //                            {
-        //                                BinaryWeatherData = buffer,
-        //                                YearDate = file.Key
-
-        //                            };
-
-        //                            lock (lockObject)
-        //                            {
-        //                                binaryDataFromFileDtos.Add(binaryDataFromFileDto);
-        //                            }
-
-        //                        }
-        //                    }
-        //                }
-
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                Debug.WriteLine(e);
-
-        //            }
-
-        //            finally
-        //            {
-        //                semaphore.Release();
-        //            }
-
-
-        //        }));
-
-        //    }
-
-        //    await Task.WhenAll(tasks);
-        //    tasks.Clear();
-        //    binarySearchInFilesDtos.Clear();
-        //    return binaryDataFromFileDtos;
-
-
-        //}
+        
 
 
 
