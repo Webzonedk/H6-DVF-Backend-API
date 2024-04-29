@@ -20,6 +20,7 @@ namespace DVF_API.Domain.BusinessLogic
     /// </summary>
     public class UtilityManager : IUtilityManager
     {
+        private PerformanceCounter cpuCounter;
         private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
 
@@ -244,6 +245,10 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns></returns>
         public (TimeSpan, Stopwatch) BeginMeasureCPU()
         {
+            cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+            // Start measuring CPU usage
+            cpuCounter.NextValue(); // Call NextValue once to get initial value
+
             // Get CPU usage before executing the code
             Process processBefore = Process.GetCurrentProcess();
             TimeSpan cpuTimeBefore = processBefore.TotalProcessorTime;
@@ -259,24 +264,24 @@ namespace DVF_API.Domain.BusinessLogic
             // Record end time
             stopwatch.Stop();
             TimeSpan elapsedTime = stopwatch.Elapsed;
-            
-            
 
-            // Get CPU usage after executing the code
-            Process processAfter = Process.GetCurrentProcess();
-            //  TimeSpan cpuTimeAfter = processAfter.TotalProcessorTime;
+            float cpuUsage = cpuCounter.NextValue();
 
-            // Calculate CPU usage during the execution of the code
-            //TimeSpan cpuTimeUsed = cpuTimeAfter - cpuTimeBefore;
-            //float cpuUsage = (float)((cpuTimeUsed.TotalMilliseconds / elapsedTime.TotalMilliseconds) * 100);
+            // Output CPU usage percentage
+            Console.WriteLine("CPU Usage: " + cpuUsage + "%");
+
+
             var endCpuUsage = Process.GetCurrentProcess().TotalProcessorTime;
+
             var cpuUsedMs = (endCpuUsage - cpuTimeBefore).TotalMilliseconds;
-            var totalMsPassed = (elapsedTime - cpuTimeBefore).TotalMilliseconds;
-            var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
+            var cpuUsageTotal = (cpuUsedMs / elapsedTime.TotalMilliseconds) * 100;
+            //var cpuUsedMs = (endCpuUsage - cpuTimeBefore).TotalMilliseconds;
+            //var totalMsPassed = (elapsedTime - cpuTimeBefore).TotalMilliseconds;
+            //var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
 
 
 
-            return (CpuUsage: (float)cpuUsageTotal *100, ElapsedTimeMs: (float)elapsedTime.TotalMilliseconds);
+            return (CpuUsage: cpuUsage, ElapsedTimeMs: (float)elapsedTime.TotalMilliseconds);
         }
 
         /// <summary>
