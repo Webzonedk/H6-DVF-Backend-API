@@ -2,22 +2,21 @@
 
 namespace DVF_API.SharedLib.Dtos
 {
-    public class BinaryWeatherStructDto
+    [StructLayout(LayoutKind.Explicit)]
+    public struct BinaryWeatherStructDto
     {
-        [StructLayout(LayoutKind.Explicit)]
-        internal unsafe struct WeatherStruct
-        {
 
-            [FieldOffset(0)]
-            public long LocationId;
-            [FieldOffset(8)]
-            public unsafe fixed float WeatherData[8];
-            [FieldOffset(0)]
-            public fixed byte BinaryWeatherDataByteArray[40];
+
+        [FieldOffset(0)]
+        public long LocationId;
+        [FieldOffset(8)]
+        public unsafe fixed float WeatherData[8];
+        [FieldOffset(0)]
+        public unsafe fixed byte BinaryWeatherDataByteArray[40];
 
 
 
 
-        }
+
     }
 }
