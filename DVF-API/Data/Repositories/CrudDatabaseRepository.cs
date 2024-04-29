@@ -241,11 +241,11 @@ namespace DVF_API.Data.Repositories
         /// <param name="fromIndex"></param>
         /// <param name="toIndex"></param>
         /// <returns></returns>
-        public async Task<Dictionary<int, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
+        public async Task<Dictionary<long, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
         {
             return await GetLocationCoordinates(fromIndex, toIndex);
         }
-        private async Task<Dictionary<int, string>> GetLocationCoordinates(int fromIndex, int toIndex)
+        private async Task<Dictionary<long, string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             try
             {
@@ -261,7 +261,7 @@ namespace DVF_API.Data.Repositories
                 try
                 {
                     var result = await command.ExecuteReaderAsync();
-                    Dictionary<int, string> coordinates = new Dictionary<int, string>();
+                    Dictionary<long, string> coordinates = new Dictionary<long, string>();
 
                     while (await result.ReadAsync())
                     {

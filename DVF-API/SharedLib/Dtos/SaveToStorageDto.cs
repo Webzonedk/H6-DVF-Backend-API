@@ -5,6 +5,6 @@
         public long LocationId { get; set; }
         public string Latitude { get; set; }
         public string Longitude { get; set; }
-        public HistoricWeatherDataDto HistoricWeatherData { get; set; }
+        public CreateHistoricWeatherDataDto HistoricWeatherData { get; set; }
     }
 }

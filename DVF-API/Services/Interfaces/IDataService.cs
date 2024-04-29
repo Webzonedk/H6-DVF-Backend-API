@@ -6,7 +6,7 @@ namespace DVF_API.Services.Interfaces
     {
         Task<List<string>> GetAddressesFromDBMatchingInputs(string partialAddress);
         Task<int> CountLocations();
-        Task<Dictionary<int, string>> GetLocationCoordinates(int fromIndex, int toIndex);
+        Task<Dictionary<long, string>> GetLocationCoordinates(int fromIndex, int toIndex);
         Task<MetaDataDto> GetWeatherDataService(SearchDto seachDto);
     }
 }
