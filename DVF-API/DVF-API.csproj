@@ -7,6 +7,7 @@
     <RootNamespace>DVF_API</RootNamespace>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <UserSecretsId>e36cf702-1aa4-48de-b22c-00a82e880321</UserSecretsId>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

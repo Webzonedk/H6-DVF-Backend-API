@@ -31,7 +31,7 @@ namespace DVF_API.Data.Repositories
         public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
         {
             await SaveDataAsBinaryFilesAsync(fileName, byteArrayToSaveToFile);
-           
+
         }
 
 
@@ -238,9 +238,6 @@ namespace DVF_API.Data.Repositories
 
 
 
-
-
-
         /// <summary>
         /// Inserts weather data into the database, using a MERGE operation to speed up the process.
         /// </summary>
@@ -333,20 +330,33 @@ namespace DVF_API.Data.Repositories
 
                     if (dataTable.Rows.Count > 0)
                     {
-                        using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
+                        int batchSize = 50000; // Kan justeres efter performance tests
+                        for (int i = 0; i < dataTable.Rows.Count; i += batchSize)
                         {
-                            bulkCopy.DestinationTableName = tempTableName;
-                            await bulkCopy.WriteToServerAsync(dataTable);
+                            Debug.WriteLine($"Indsætter række {i} til {i + batchSize} af {dataTable.Rows.Count}");
+                            var batchTable = new DataTable();
+                            batchTable = dataTable.Clone(); // Kopier struktur
+                            for (int j = 0; j < batchSize && (i + j) < dataTable.Rows.Count; j++)
+                            {
+                                batchTable.ImportRow(dataTable.Rows[i + j]);
+                            }
 
-                            // MERGE operation
-                            command.CommandText = $@"
+                            using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
+                            {
+                                bulkCopy.DestinationTableName = tempTableName;
+                                bulkCopy.BatchSize = batchSize;
+                                await bulkCopy.WriteToServerAsync(batchTable);
+
+                                // MERGE operation
+                                command.CommandText = $@"
                             MERGE INTO WeatherDatas AS target
                             USING {tempTableName} AS source
                             ON target.DateAndTime = source.DateAndTime AND target.LocationId = source.LocationId
                             WHEN NOT MATCHED THEN
                             INSERT (TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId, IsDeleted)
                             VALUES (source.TemperatureC, source.WindSpeed, source.WindDirection, source.WindGust, source.RelativeHumidity, source.Rain, source.GlobalTiltedIrRadiance, source.DateAndTime, source.LocationId, source.IsDeleted);";
-                            await command.ExecuteNonQueryAsync();
+                                await command.ExecuteNonQueryAsync();
+                            }
                         }
                     }
                     else
@@ -361,6 +371,133 @@ namespace DVF_API.Data.Repositories
                 throw;
             }
         }
+
+
+
+
+
+
+
+        ///// <summary>
+        ///// Inserts weather data into the database, using a MERGE operation to speed up the process.
+        ///// </summary>
+        ///// <param name="saveToStorageDtoDataList"></param>
+        ///// <param name="connectionString"></param>
+        ///// <returns>Returns a Task.</returns>
+        //private async Task InsertWeatherDataToDatabaseAsync(List<SaveToStorageDto> saveToStorageDtoDataList, string connectionString)
+        //{
+        //    try
+        //    {
+        //        var locationDictionary = new Dictionary<string, int>();
+        //        using (var connection = new SqlConnection(connectionString))
+        //        {
+        //            await connection.OpenAsync();
+        //            SqlCommand command = new SqlCommand("", connection);
+
+        //            // Cache location IDs
+        //            command.CommandText = "SELECT LocationId, Latitude, Longitude FROM Locations";
+        //            using (var reader = await command.ExecuteReaderAsync())
+        //            {
+        //                while (await reader.ReadAsync())
+        //                {
+        //                    string key = $"{reader["Latitude"]},{reader["Longitude"]}";
+        //                    if (!locationDictionary.ContainsKey(key))
+        //                    {
+        //                        locationDictionary[key] = (int)reader["LocationId"];
+        //                    }
+        //                }
+        //            }
+
+        //            // Setup temporary table
+        //            string tempTableName = "#tempWeatherData";
+        //            command.CommandText = $@"
+        //            CREATE TABLE {tempTableName} (
+        //            TemperatureC DECIMAL(10, 2),
+        //            WindSpeed DECIMAL(10, 2),
+        //            WindDirection DECIMAL(10, 2),
+        //            WindGust DECIMAL(10, 2),
+        //            RelativeHumidity DECIMAL(10, 2),
+        //            Rain DECIMAL(10, 2),
+        //            GlobalTiltedIrRadiance DECIMAL(10, 2),
+        //            DateAndTime DATETIME,
+        //            LocationId INT,
+        //            IsDeleted BIT
+        //            );";
+
+        //            command.ExecuteNonQuery();
+
+        //            DataTable dataTable = new DataTable();
+        //            dataTable.Columns.Add("TemperatureC", typeof(float));
+        //            dataTable.Columns.Add("WindSpeed", typeof(float));
+        //            dataTable.Columns.Add("WindDirection", typeof(float));
+        //            dataTable.Columns.Add("WindGust", typeof(float));
+        //            dataTable.Columns.Add("RelativeHumidity", typeof(float));
+        //            dataTable.Columns.Add("Rain", typeof(float));
+        //            dataTable.Columns.Add("GlobalTiltedIrRadiance", typeof(float));
+        //            dataTable.Columns.Add("DateAndTime", typeof(DateTime));
+        //            dataTable.Columns.Add("LocationId", typeof(int));
+        //            dataTable.Columns.Add("IsDeleted", typeof(bool));
+
+        //            foreach (var data in saveToStorageDtoDataList)
+        //            {
+        //                string locationKey = $"{data.Latitude},{data.Longitude}";
+        //                if (locationDictionary.TryGetValue(locationKey, out int locationId))
+        //                {
+        //                    var weatherData = data.HistoricWeatherData;
+        //                    for (int i = 0; i < weatherData.Hourly.Time.Length; i++)
+        //                    {
+
+        //                        DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+        //                        dataTable.Rows.Add(
+        //                            Math.Round(weatherData.Hourly.Temperature_2m[i], 2),
+        //                            Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
+        //                            Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
+        //                            Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
+        //                            Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
+        //                            Math.Round(weatherData.Hourly.Rain[i], 2),
+        //                            Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
+        //                            parsedDate,
+        //                            locationId,
+        //                            false
+        //                        );
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    Debug.WriteLine("LocationId ikke fundet for nøglen: " + locationKey);
+        //                }
+        //            }
+
+        //            if (dataTable.Rows.Count > 0)
+        //            {
+        //                using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
+        //                {
+        //                    bulkCopy.DestinationTableName = tempTableName;
+        //                    await bulkCopy.WriteToServerAsync(dataTable);
+
+        //                    // MERGE operation
+        //                    command.CommandText = $@"
+        //                    MERGE INTO WeatherDatas AS target
+        //                    USING {tempTableName} AS source
+        //                    ON target.DateAndTime = source.DateAndTime AND target.LocationId = source.LocationId
+        //                    WHEN NOT MATCHED THEN
+        //                    INSERT (TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId, IsDeleted)
+        //                    VALUES (source.TemperatureC, source.WindSpeed, source.WindDirection, source.WindGust, source.RelativeHumidity, source.Rain, source.GlobalTiltedIrRadiance, source.DateAndTime, source.LocationId, source.IsDeleted);";
+        //                    await command.ExecuteNonQueryAsync();
+        //                }
+        //            }
+        //            else
+        //            {
+        //                Debug.WriteLine("Ingen data at indsætte.");
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine("Fejl under databaseoperation: " + ex.Message);
+        //        throw;
+        //    }
+        //}
 
 
 

@@ -4,6 +4,7 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
@@ -102,41 +103,50 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 List<SaveToStorageDto> saveToStorageDtos = new List<SaveToStorageDto>();
 
-                Dictionary<int, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647); // ca 1,2 seconds
-                await RetreiveProcessWeatherData(saveToStorageDtos, _latitude, _longitude, startDate, endDate, locationCoordinatesWithId);// ca. 2,9 seconds
+                Dictionary<long, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647); // ca 1,2 seconds
 
+                List<DateTime> allDates = GetAllDates(startDate, endDate);
+                foreach (var date in allDates)
+                {
+                    var result = await RetreiveProcessWeatherData(saveToStorageDtos, _latitude, _longitude, date, locationCoordinatesWithId);// ca. 2,9 seconds
+                }
                 if (saveToStorageDtos == null)
                 {
                     return;
                 }
-                if (createDB)
+                try
                 {
-                    int batchSize = 200;
-                    for (int i = 0; i < saveToStorageDtos.Count; i += batchSize)
+                    if (createDB)
                     {
-                        List<SaveToStorageDto> batch = saveToStorageDtos.Skip(i).Take(batchSize).ToList();
+                        //int batchSize = 200;
+                        //for (int i = 0; i < saveToStorageDtos.Count; i += batchSize)
+                        //{
+                        //    List<SaveToStorageDto> batch = saveToStorageDtos.Skip(i).Take(batchSize).ToList();
 
-                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(batch);
+                        //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(batch);
+                        //}
+
+                        //await _historicWeatherDataRepository.SaveDataToDatabaseAsync(saveToStorageDtos);
                     }
-                }
-                if (createFiles)
-                {
-                    try
+                    if (createFiles)
                     {
                         await CreateWeatherDataAndSendItToRepository(saveToStorageDtos);
                     }
-                    finally
-                    {
-                        saveToStorageDtos.Clear();
-                        _utilityManager.CleanUpRessources();
-                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+                finally
+                {
+                    saveToStorageDtos.Clear();
+                    _utilityManager.CleanUpRessources();
                 }
             }
             catch (Exception ex)
             {
                 // Ready for logging
             }
-
         }
 
 
@@ -306,42 +316,59 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
-        private async Task RetreiveProcessWeatherData(List<SaveToStorageDto> saveToStorageDtos, string latitude, string longitude, DateTime startDate, DateTime endDate, Dictionary<int, string> locationCoordinatesWithId)
+        private async Task<List<CreateHistoricWeatherDataDto>> RetreiveProcessWeatherData(List<SaveToStorageDto> saveToStorageDtos, string latitude, string longitude, DateTime date, Dictionary<long, string> locationCoordinatesWithId)
         {
             try
             {
-                string url = $"https://archive-api.open-meteo.com/v1/archive?latitude={latitude}&longitude={longitude}&start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}&hourly=temperature_2m,relative_humidity_2m,rain,wind_speed_10m,wind_direction_10m,wind_gusts_10m,global_tilted_irradiance_instant&wind_speed_unit=ms";
+                string url = $"https://archive-api.open-meteo.com/v1/archive?latitude={latitude}&longitude={longitude}&start_date={date:yyyy-MM-dd}&end_date={date:yyyy-MM-dd}&hourly=temperature_2m,relative_humidity_2m,rain,wind_speed_10m,wind_direction_10m,wind_gusts_10m,global_tilted_irradiance_instant&wind_speed_unit=ms";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (originalWeatherDataFromAPI != null)
                 {
-                    await ProcessAllCoordinates(saveToStorageDtos, originalWeatherDataFromAPI, locationCoordinatesWithId);
+                    List<CreateHistoricWeatherDataDto> weatherDataForSelectedDate = await ProcessAllCoordinates(saveToStorageDtos, originalWeatherDataFromAPI, locationCoordinatesWithId);
+                    return weatherDataForSelectedDate;
                 }
                 else
                 {
-                    saveToStorageDtos = new List<SaveToStorageDto>();
+                    return new List<CreateHistoricWeatherDataDto>();
                 }
             }
             catch (Exception ex)
             {
                 // Ready for logging
+                return new List<CreateHistoricWeatherDataDto>();
             }
         }
 
 
 
 
-        private async Task ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDtos, HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<int, string> locationCoordinatesWithId)
+        private List<DateTime> GetAllDates(DateTime startDate, DateTime endDate)
+        {
+            List<DateTime> dateList = new List<DateTime>();
+
+            for (DateTime date = startDate; date <= endDate; date = date.AddDays(1))
+            {
+                dateList.Add(date);
+            }
+
+            return dateList;
+        }
+
+
+
+
+        private async Task<List<CreateHistoricWeatherDataDto>> ProcessAllCoordinates(List<SaveToStorageDto> saveToStorageDtos, HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<long, string> locationCoordinatesWithId)
         {
 
             List<Task> tasks = new List<Task>();
             object lockObject = new object();
 
             SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
-
-            foreach (KeyValuePair<int, string> keyValuePair in locationCoordinatesWithId)
+            List<CreateHistoricWeatherDataDto> createHistoricWeatherDataDtoList = new List<CreateHistoricWeatherDataDto>();
+            foreach (KeyValuePair<long, string> keyValuePair in locationCoordinatesWithId)
             {
                 tasks.Add(Task.Run(async () =>
                 {
@@ -349,19 +376,12 @@ namespace DVF_API.Services.ServiceImplementation
                     try
                     {
                         string[] parts = keyValuePair.Value.Split('-');
-                        HistoricWeatherDataDto? modifiedData = ModifyData(originalWeatherDataFromAPI);
+                        List<CreateHistoricWeatherDataDto> modifiedData = ConvertToCreateDto(originalWeatherDataFromAPI, keyValuePair.Key);
                         if (modifiedData != null)
                         {
-                            SaveToStorageDto saveToFileDto = new SaveToStorageDto
-                            {
-                                HistoricWeatherData = modifiedData,
-                                Latitude = parts[0],
-                                Longitude = parts[1],
-                                LocationId = keyValuePair.Key
-                            };
                             lock (lockObject)
                             {
-                                saveToStorageDtos.Add(saveToFileDto);
+                                createHistoricWeatherDataDtoList.AddRange(modifiedData);
                             }
                         }
                     }
@@ -377,7 +397,39 @@ namespace DVF_API.Services.ServiceImplementation
                 }));
             }
             await Task.WhenAll(tasks);
+            return createHistoricWeatherDataDtoList;
         }
+
+
+
+
+
+        private List<CreateHistoricWeatherDataDto> ConvertToCreateDto(HistoricWeatherDataDto historicData, long LocationId)
+        {
+            List<CreateHistoricWeatherDataDto> weatherDataList = new List<CreateHistoricWeatherDataDto>();
+
+            for (int i = 0; i < historicData.Hourly.Time.Length; i++)
+            {
+                var random = new Random();
+                var newWeatherData = new CreateHistoricWeatherDataDto
+                {
+                    LocationId = LocationId,
+                    Time = historicData.Hourly.Time[i],
+                    Temperature_2m = AdjustValueRandomly(historicData.Hourly.Temperature_2m[i], random),
+                    Relative_Humidity_2m = AdjustValueRandomly(historicData.Hourly.Relative_Humidity_2m[i], random),
+                    Rain = AdjustValueRandomly(historicData.Hourly.Rain[i], random),
+                    Wind_Speed_10m = AdjustValueRandomly(historicData.Hourly.Wind_Speed_10m[i], random),
+                    Wind_Direction_10m = AdjustValueRandomly(historicData.Hourly.Wind_Direction_10m[i], random),
+                    Wind_Gusts_10m = AdjustValueRandomly(historicData.Hourly.Wind_Gusts_10m[i], random),
+                    Global_Tilted_Irradiance_Instant = AdjustValueRandomly(historicData.Hourly.Global_Tilted_Irradiance_Instant[i], random)
+                };
+
+                weatherDataList.Add(newWeatherData);
+            }
+
+            return weatherDataList;
+        }
+
 
 
 
