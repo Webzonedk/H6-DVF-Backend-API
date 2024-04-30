@@ -15,11 +15,8 @@ namespace DVF_API.Domain.BusinessLogic
     /// </summary>
     public class UtilityManager : IUtilityManager
     {
-        private PerformanceCounter cpuCounter;
         private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
-
-
 
 
         /// <summary>
@@ -84,7 +81,7 @@ namespace DVF_API.Domain.BusinessLogic
 
         /// <summary>
         /// Get the available memory in bytes based on the operating system.
-        /// This method has no Unit Test because it is a private method that is called by other public methods.
+        /// This method has no Unit Test because it is a private method that is called by other public methods, and the result is dependent on the operating system.
         /// </summary>
         /// <returns>A long value representing the available memory in bytes.</returns>
         private long GetAvailableMemory()
@@ -141,41 +138,15 @@ namespace DVF_API.Domain.BusinessLogic
 
 
         /// <summary>
-        /// converts number of bytes to MB
-        /// </summary>
-        /// <param name="bytes"></param>
-        /// <returns></returns>
-        public float ConvertBytesToMegabytes(int bytes)
-        {
-            return (float)bytes / (1024 * 1024);
-        }
-
-
-
-
-        /// <summary>
-        /// converts number of bytes to GB
-        /// </summary>
-        /// <param name="bytes"></param>
-        /// <returns></returns>
-        public float ConvertBytesToGigabytes(int bytes)
-        {
-            return (float)bytes / (1024 * 1024 * 1024);
-        }
-
-
-
-
-        /// <summary>
         /// Converts the given number of bytes to a human-readable format (e.g., KB, MB, GB).
         /// </summary>
         /// <param name="bytes"></param>
         /// <returns>a string representing the number of bytes in a human-readable format.</returns>
         public string ConvertBytesToFormat(long bytes)
         {
-             int KB = 1024;
-             int MB = KB * 1024;
-             int GB = MB * 1024;
+            int KB = 1024;
+            int MB = KB * 1024;
+            int GB = MB * 1024;
 
             if (bytes < KB)
             {
@@ -219,12 +190,106 @@ namespace DVF_API.Domain.BusinessLogic
             }
         }
 
+        //public double ConvertDateTimeToDouble(string date)
+        //{
+        //    try
+        //    {
+        //        DateTime parsedDateTime;
+        //        string[] formats = { "dd-MM-yyyy", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd" };
+
+        //        if (DateTime.TryParseExact(date, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDateTime))
+        //        {
+        //            string formattedDateTime = parsedDateTime.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture);
+        //            Debug.WriteLine($"Formatted DateTime: {formattedDateTime}");
+        //            double result = double.Parse(formattedDateTime, CultureInfo.InvariantCulture);
+        //            Debug.WriteLine($"Parsed Double: {result}");
+        //            return result;
+        //        }
+        //        else
+        //        {
+        //            Debug.WriteLine("Unable to parse date.");
+        //            return -1; // Eller en anden fejlkode
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"Error parsing date or converting to double: {ex.Message}. Stack Trace: {ex.StackTrace}");
+        //        throw; // Kast exception videre eller håndter den på anden vis
+        //    }
+        //}
+
+
+
+
+
+
+        public double ConvertDateTimeToDouble(string time)
+        {
+            DateTime parsedDateTime = DateTime.Parse(time);
+            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
+        }
+
+
+
+        /// <summary>
+        /// Converts a given date and time to a float representation for internal use.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <returns>a double value representing the date and time in float format. Alternatively, returns 0 on error.</returns>
+        public double ConvertDateTimeToDouble_old(string date)
+        {
+            try
+            {
+                DateOnly parsedDate = DateOnly.Parse(date);
+                DateTime parsedDateTime = parsedDate.ToDateTime(new TimeOnly(0, 0));
+
+                string formattedDateTime = parsedDateTime.ToString("yyyyMMddHHmm");
+                Debug.WriteLine($"Formatted DateTime: {formattedDateTime}");
+                //var result = double.Parse(formattedDateTime);
+                var result = 2;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error parsing date: {ex.Message}. Stack Trace: {ex.StackTrace}");
+                return 0; // Return default value on error
+            }
+        }
+
+
+
+
+
+        /// <summary>
+        /// Splits a double representation of a date and time into separate components.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <returns>an object array containing the date and time components.</returns>
+        public object[] MixedYearDateTimeSplitter(double time)
+        {
+            string timeString = time.ToString("000000000000");
+            object[] result = new object[2];
+
+            try
+            {
+                result[0] = timeString.Substring(0, 8);
+                result[1] = float.Parse(timeString.Substring(8, 4));
+            }
+            catch
+            {
+                result[0] = "00000000";
+                result[1] = 0f;
+            }
+            return result;
+        }
 
 
 
         /// <summary>
         /// Begins measuring the time and process of the current process,
         /// returns the initial CPU time and a stopwatch object.
+        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
+        /// It should rather be tested using integration tests.
         /// </summary>
         /// <returns>A tuple containing the initial CPU time and a stopwatch object.</returns>
         public (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU()
@@ -242,6 +307,8 @@ namespace DVF_API.Domain.BusinessLogic
         /// <summary>
         /// Stops measuring CPU usage, takes in a TimeSpan and a Stopwatch object,
         /// returns a tuple containing the CPU usage percentage and elapsed time in milliseconds.
+        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
+        /// It should rather be tested using integration tests.
         /// </summary>
         /// <param name="initialCpuTime"></param>
         /// <param name="stopwatch"></param>
@@ -266,6 +333,8 @@ namespace DVF_API.Domain.BusinessLogic
 
         /// <summary>
         /// begins measuring ram usage, returns a 64 bit int representing the ram usage before the code block
+        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
+        /// It should rather be tested using integration tests.
         /// </summary>
         /// <returns>a 64-bit integer representing the RAM usage before executing the code block.</returns>
         public long BeginMeasureMemory()
@@ -284,6 +353,8 @@ namespace DVF_API.Domain.BusinessLogic
 
         /// <summary>
         /// stops measuring ram usage, takes in a 64 bit int representing the ram usage before the code block, returns the difference in ram usage
+        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
+        /// It should rather be tested using integration tests.
         /// </summary>
         /// <param name="ramUsageBeforeBytes"></param>
         /// <param name="currentProcess"></param>
@@ -297,49 +368,5 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-        /// <summary>
-        /// Converts a given date and time to a float representation for internal use.
-        /// </summary>
-        /// <param name="time"></param>
-        /// <returns>a double value representing the date and time in float format.</returns>
-        public double ConvertDateTimeToFloatInternal(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
-        }
-
-
-
-
-        /// <summary>
-        /// Converts coordinates from string format to float format.
-        /// </summary>
-        /// <param name="coordinate"></param>
-        /// <returns>a float value representing the coordinate in float format.</returns>
-        public float ConvertCoordinate(string coordinate)
-        {
-            var normalized = coordinate.Replace(',', '.');
-            return float.Parse(normalized, CultureInfo.InvariantCulture);
-        }
-
-
-
-
-        /// <summary>
-        /// Splits a double representation of a date and time into separate components.
-        /// </summary>
-        /// <param name="time"></param>
-        /// <returns>an object array containing the date and time components.</returns>
-        public object[] MixedYearDateTimeSplitter(double time)
-        {
-            object[] result = new object[2]; 
-            string timeString = time.ToString("000000000000");
-
-            result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
-
-            result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
-
-            return result;
-        }
     }
 }

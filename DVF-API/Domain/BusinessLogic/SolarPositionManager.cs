@@ -103,5 +103,8 @@ namespace DVF_API.Domain.BusinessLogic
             return (sunAltitude, sunAzimuth);
         }
 
+
+
+
     }
 }

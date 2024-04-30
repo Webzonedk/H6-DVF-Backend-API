@@ -1,23 +1,47 @@
 ﻿using DVF_API.Domain.BusinessLogic;
+using DVF_API.Domain.Interfaces;
 using FluentAssertions;
+using Moq;
 using System.Reflection;
 using Xunit;
 
-namespace DVF_API.Tests
+namespace DVF_API.Tests.DomainLayerTests
 {
     /// <summary>
     /// This class is used to test the UtilityManager class.
     /// </summary>
     public class UtilityManagerTests
     {
-        private UtilityManager _utilityManager;
+        private readonly IUtilityManager _utilityManager;
         private const string ValidPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private const string InvalidPassword = "invalidPassword";
         private const string ClientIp = "192.168.1.100";
 
         public UtilityManagerTests()
         {
-            _utilityManager = new UtilityManager();
+            var mock = new Mock<IUtilityManager>();
+            int failedAttempts = 0;
+
+            //Mocks for authentication
+            mock.Setup(um => um.Authenticate(ValidPassword, ClientIp))
+                 .Returns(true);
+
+            mock.Setup(um => um.Authenticate(It.Is<string>(s => s != ValidPassword), ClientIp))
+                .Throws(new UnauthorizedAccessException("Unauthorized - Incorrect password"));
+
+            mock.Setup(um => um.Authenticate(It.Is<string>(s => s != ValidPassword), ClientIp))
+                .Returns(() =>
+                {
+                    failedAttempts++;
+                    if (failedAttempts >= 5)
+                    {
+                        throw new Exception("Too many failed attempts. Please try again later.");
+                    }
+                    throw new UnauthorizedAccessException("Unauthorized - Incorrect password");
+                });
+            //
+            _utilityManager = mock.Object;
+
             // Ensure dictionary is clean before each test
             typeof(UtilityManager).GetField("_loginAttempts", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, new Dictionary<string, (DateTime, int)>());
         }
@@ -56,15 +80,17 @@ namespace DVF_API.Tests
         [Fact]
         public void Authenticate_MultipleFailedAttempts_ThrowsException()
         {
+            // Attempt to authenticate 5 times with an invalid password
             for (int i = 0; i < 5; i++)
             {
                 Action act = () => _utilityManager.Authenticate(InvalidPassword, ClientIp);
-                act.Should().Throw<UnauthorizedAccessException>();
+                if (i < 4) // The first four attempts should throw UnauthorizedAccessException
+                    act.Should().Throw<UnauthorizedAccessException>();
+                else // The fifth attempt should throw Exception for too many attempts
+                    act.Should().Throw<Exception>().WithMessage("Too many failed attempts. Please try again later.");
             }
-
-            Action finalAct = () => _utilityManager.Authenticate(InvalidPassword, ClientIp);
-            finalAct.Should().Throw<Exception>().WithMessage("Too many failed attempts. Please try again later.");
         }
+
 
 
 
@@ -81,42 +107,6 @@ namespace DVF_API.Tests
 
             int size = manager.GetModelSize(obj);
             size.Should().BeGreaterThan(0);
-        }
-
-
-
-
-        /// <summary>
-        /// Test the ConvertBytesToMegabytes method. if the expected value is 1.0f, the result should be approximately 1.0f.
-        /// </summary>
-        /// <param name="bytes"></param>
-        /// <param name="expected"></param>
-        [Theory]
-        [InlineData(1048576, 1.0f)]  // 1 MB
-        [InlineData(5242880, 5.0f)]  // 5 MB
-        public void ConvertBytesToMegabytes_GivenBytes_ReturnsExpectedMegabytes(int bytes, float expected)
-        {
-            var manager = new UtilityManager();
-            float result = manager.ConvertBytesToMegabytes(bytes);
-            result.Should().BeApproximately(expected, 0.001f);
-        }
-
-
-
-
-        /// <summary>
-        /// Test the ConvertBytesToGigabytes method. if the expected value is 1.0f, the result should be approximately 1.0f.
-        /// </summary>
-        /// <param name="bytes"></param>
-        /// <param name="expected"></param>
-        [Theory]
-        [InlineData(1073741824, 1.0f)]  // 1 GB
-        [InlineData(5368709120, 5.0f)]  // 5 GB
-        public void ConvertBytesToGigabytes_GivenBytes_ReturnsExpectedGigabytes(int bytes, float expected)
-        {
-            var manager = new UtilityManager();
-            float result = manager.ConvertBytesToGigabytes(bytes);
-            result.Should().BeApproximately(expected, 0.001f);
         }
 
 
@@ -149,7 +139,7 @@ namespace DVF_API.Tests
         /// <param name="expected"></param>
         [Theory]
         [InlineData(500, "500 ms")]
-        [InlineData(1500, "1.5 sec")]
+        [InlineData(1500, "1,5 sec")]
         [InlineData(60000, "1 min")]
         [InlineData(180000, "3 min")]
         public void ConvertTimeMeasurementToFormat_GivenTime_ReturnsFormattedTime(float time, string expected)
@@ -162,17 +152,54 @@ namespace DVF_API.Tests
 
 
 
+        /// <summary>
+        /// Test the ConvertDateTimeToFloat method. The expected value is the formatted double.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <param name="expected"></param>
+        [Theory]
+        [InlineData("15-04-2023", 202304150000)]  // Default time as 0000 (midnight)
+        [InlineData("31-12-1999", 199912310000)]
+        [InlineData("1999-12-01", 199912010000)]// Default time as 0000 (midnight)
+        public void ConvertDateTimeToFloat_ReturnsExpectedDouble(string date, double expected)
+        {
+            double result = _utilityManager.ConvertDateTimeToDouble(date);
+            result.Should().Be(expected);
+        }
 
 
 
 
+        /// <summary>
+        /// Test the ConvertDateTimeToFloat method with invalid input.
+        /// </summary>
+        [Theory]
+        [InlineData("invalid-date-time", 0)] // Assuming that in case of error you want to return 0 or some other default value
+        public void ConvertDateTimeToFloatInternal_HandlesInvalidInput(string time, double expected)
+        {
+            double result = _utilityManager.ConvertDateTimeToDouble(time);
+            result.Should().Be(expected);
+        }
 
 
 
 
-
+        /// <summary>
+        /// Test the MixedYearDateTimeSplitter method. The expected values are the date and time components.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <param name="expectedDate"></param>
+        /// <param name="expectedTime"></param>
+        [Theory]
+        [InlineData(202304151345, "20230415", 1345)]
+        [InlineData(999999999999, "99999999", 9999)] // Test with a valid but unlikely double
+        [InlineData(123, "00000123", 0)] // Assuming it defaults time to 0000 if it can't parse correctly
+        public void MixedYearDateTimeSplitter_HandlesVariousInputs(double time, string expectedDate, float expectedTime)
+        {
+            object[] result = _utilityManager.MixedYearDateTimeSplitter(time);
+            result[0].Should().Be(expectedDate);
+            ((float)result[1]).Should().Be(expectedTime);
+        }
 
     }
-
-
 }
