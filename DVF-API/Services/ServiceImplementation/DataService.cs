@@ -87,7 +87,7 @@ namespace DVF_API.Services.ServiceImplementation
 
                 // return recorded CPU usage and memory usage
                 var cpuResult = _utilityManager.StopMeasureCPU(cpuTimeBefore, stopwatch);
-                var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
+                long byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
                 string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
 
@@ -126,10 +126,10 @@ namespace DVF_API.Services.ServiceImplementation
                     //map measurements to model
                     modelResult.DataLoadedMB = dataCollectedInMB;
                     modelResult.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(cpuResult.ElapsedTimeMs);
-                    modelResult.CpuUsage = cpuResult.CpuUsage;
+                    modelResult.CpuUsage = cpuResult.CpuUsagePercentage;
                     modelResult.RamUsage = measuredRamUsage;
                     modelResult.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(ConvertioncpuResult.ElapsedTimeMs);
-                    modelResult.ConvertionCpuUsage = ConvertioncpuResult.CpuUsage;
+                    modelResult.ConvertionCpuUsage = ConvertioncpuResult.CpuUsagePercentage;
                     modelResult.ConvertionRamUsage = ConvertionmeasuredRamUsage;
 
                     return modelResult;
@@ -303,10 +303,10 @@ namespace DVF_API.Services.ServiceImplementation
                 //map measurements to model
                 metaDataDto.DataLoadedMB = dataCollectedInMB;
                 metaDataDto.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(cpuResult.ElapsedTimeMs);
-                metaDataDto.CpuUsage = cpuResult.CpuUsage;
+                metaDataDto.CpuUsage = cpuResult.CpuUsagePercentage;
                 metaDataDto.RamUsage = measuredRamUsage;
                 metaDataDto.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(convertionCpuResult.ElapsedTimeMs);
-                metaDataDto.ConvertionCpuUsage = convertionCpuResult.CpuUsage;
+                metaDataDto.ConvertionCpuUsage = convertionCpuResult.CpuUsagePercentage;
                 metaDataDto.ConvertionRamUsage = convertionMeasuredRamUsage;
 
                 return metaDataDto;
