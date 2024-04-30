@@ -165,7 +165,7 @@ namespace DVF_API.Services.ServiceImplementation
                     for (int i = 0; i < dateList.Count; i++)
                     {
 
-                        double yearDate = _utilityManager.ConvertDateTimeToFloatInternal(dateList[i].ToString());
+                        double yearDate = _utilityManager.ConvertDateTimeToDouble(dateList[i].ToString());
                         var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
                         var year = fullDate.Substring(0, 4);
                         var monthDay = fullDate.Substring(4, 4);
