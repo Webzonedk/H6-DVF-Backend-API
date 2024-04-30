@@ -193,7 +193,7 @@ namespace DVF_API.Data.Repositories
             catch (Exception ex)
             {
                 Debug.WriteLine($"An error occurred: {ex.Message}");
-                throw;  // Rethrow to handle higher up or log with more details
+                throw;  // Re throw to handle higher up or log with more details
             }
         }
 

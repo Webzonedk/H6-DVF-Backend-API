@@ -174,7 +174,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
         /// <summary>
-        /// Retreives and processes the weather data for the given date for all locations
+        /// Retrieves and processes the weather data for the given date for all locations
         /// </summary>
         /// <param name="latitude"></param>
         /// <param name="longitude"></param>

@@ -162,7 +162,7 @@ namespace DVF_API.Services.ServiceImplementation
                     for (int i = 0; i < dateList.Count; i++)
                     {
 
-                        double yearDate = _utilityManager.ConvertDateTimeToFloatInternal(dateList[i].ToString());
+                        double yearDate = _utilityManager.ConvertDateTimeToDouble(dateList[i].ToString());
                         var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
                         var year = fullDate.Substring(0, 4);
                         var monthDay = fullDate.Substring(4, 4);
@@ -220,7 +220,7 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan convertionCpuTimeBefore, Stopwatch convertionStopwatch) = _utilityManager.BeginMeasureCPU();
                 long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
 
-                //get all cooordinates
+                //get all coordinates
                 if (totalCoordinates != 1)
                 {
                     locations = await _locationRepository.GetAllLocationCoordinates();
