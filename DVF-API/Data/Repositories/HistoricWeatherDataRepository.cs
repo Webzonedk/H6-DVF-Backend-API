@@ -31,7 +31,7 @@ namespace DVF_API.Data.Repositories
 
         public async Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
-            await SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
+             SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
 
         }
 
@@ -203,7 +203,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
+        private  void SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
             // Calculate the total size needed for all structs
             long totalSize = (long)Marshal.SizeOf<BinaryWeatherStructDto>() * weatherStruct.Length;
@@ -229,9 +229,9 @@ namespace DVF_API.Data.Repositories
 
             try
             {
-                using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: false))
                 {
-                    await fileStream.WriteAsync(buffer, 0, buffer.Length);
+                     fileStream.Write(buffer, 0, buffer.Length);
                 }
             }
             catch (UnauthorizedAccessException ex)

@@ -4,6 +4,6 @@ namespace DVF_API.Domain.Interfaces
 {
     public interface ISolarPositionManager
     {
-        WeatherDataDto CalculateSunAngles(WeatherDataDto weathterDataDto);
+        (double SunAltitude, double SunAzimuth) CalculateSunAngles(DateTime dateTime, double latitude, double longitude);
     }
 }
