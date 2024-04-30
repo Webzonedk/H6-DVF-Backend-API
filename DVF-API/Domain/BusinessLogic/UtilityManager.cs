@@ -176,6 +176,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>a string representing the time measurement in a human-readable format.</returns>
         public string ConvertTimeMeasurementToFormat(float time)
         {
+
             if (time < 1000)
             {
                 return $"{time.ToString("0.##")} ms";
