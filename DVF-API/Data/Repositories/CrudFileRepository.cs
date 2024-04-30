@@ -195,26 +195,6 @@ namespace DVF_API.Data.Repositories
 
 
 
-
-
-
-        /// <summary>
-        /// Checks if the file date is within the given date range. It is used within the FetchWeatherDataAsync method.
-        /// </summary>
-        /// <param name="filePath">File path to check.</param>
-        /// <param name="fromDate">Start date of the range.</param>
-        /// <param name="toDate">End date of the range.</param>
-        /// <returns>True if within range, otherwise false.</returns>
-        private bool IsFileDateWithinRange(string filePath, DateOnly fromDate, DateOnly toDate)
-        {
-            string fileName = Path.GetFileNameWithoutExtension(filePath);
-            DateOnly fileDate = DateOnly.ParseExact(fileName, "MMdd", CultureInfo.InvariantCulture);
-            return fileDate >= fromDate && fileDate <= toDate;
-        }
-
-
-
-
         /// <summary>
         /// Asynchronously moves old files to a specified 'deleted' directory if they are older than the provided date.
         /// </summary>

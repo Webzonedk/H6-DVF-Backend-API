@@ -160,7 +160,6 @@ namespace DVF_API.Services.ServiceImplementation
                     finally
                     {
                         Array.Empty<BinaryWeatherStructDto>();
-                        _utilityManager.CleanUpRessources();
                     }
                 }
             }

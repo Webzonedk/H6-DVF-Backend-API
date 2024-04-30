@@ -1,35 +1,22 @@
 ﻿using System.Diagnostics;
-using System.Globalization;
 
 namespace DVF_API.Domain.Interfaces
 {
     public interface IUtilityManager
     {
         bool Authenticate(string password, string clientIp);
-        void CleanUpRessources();
         int CalculateOptimalDegreeOfParallelism();
         int GetModelSize(object obj);
-        //int GetModelSize<T>(List<T> list);
         float ConvertBytesToMegabytes(int bytes);
         float ConvertBytesToGigabytes(int bytes);
-        (TimeSpan, Stopwatch) BeginMeasureCPU();
-        (float CpuUsage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan cpuTimeBefore, Stopwatch stopwatch);
+        (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU();
+        (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan initialCpuTime, Stopwatch stopwatch);
         long BeginMeasureMemory();
-        int StopMeasureMemory(long ramUsageBeforeBytes);
+        long StopMeasureMemory(long ramUsageBeforeBytes);
         string ConvertTimeMeasurementToFormat(float time);
-        string ConvertBytesToFormat(int bytes);
+        string ConvertBytesToFormat(long bytes);
         double ConvertDateTimeToFloatInternal(string time);
         float ConvertCoordinate(string coordinate);
         object[] MixedYearDateTimeSplitter(double time);
-
-
-
-
-
-
-
-
-
-
     }
 }

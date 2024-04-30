@@ -2,8 +2,6 @@
 {
     public class WeatherDataDto
     {
-
-
         public string? Address { get; set; }
         public string? Latitude { get; set; }
         public string? Longitude { get; set; }
@@ -17,6 +15,5 @@
         public float SunElevationAngle { get; set; }
         public float SunAzimuthAngle { get; set; }
         public DateTime DateAndTime { get; set; }
-
     }
 }

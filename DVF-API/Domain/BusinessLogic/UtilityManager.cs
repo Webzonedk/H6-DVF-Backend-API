@@ -1,14 +1,9 @@
 ﻿using DVF_API.Domain.Interfaces;
-using DVF_API.Services.Interfaces;
-using DVF_API.Services.ServiceImplementation;
-using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Management;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text.Json;
-using System.Text;
-using System.Globalization;
 
 namespace DVF_API.Domain.BusinessLogic
 {
@@ -25,16 +20,12 @@ namespace DVF_API.Domain.BusinessLogic
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
 
 
-        public UtilityManager()
-        {
-        }
-
-
-
 
 
         /// <summary>
-        /// Simple password-based authentication method that checks if the provided password matches the predefined secret password.
+        /// A simple password-based authentication method that checks if the provided password matches the predefined secret password.
+        /// If the password is incorrect, the method will increment the login attempt count and block access after 5 failed attempts within 5 minutes.
+        /// to avoid brute force attacks.
         /// </summary>
         /// <param name="password"></param>
         /// <param name="clientIp"></param>
@@ -67,28 +58,15 @@ namespace DVF_API.Domain.BusinessLogic
 
 
         /// <summary>
-        /// Cleans up system resources by forcing garbage collection, clearing the console window,
-        /// and terminating all instances of the current process except the main one.
-        /// This method is intended to be used cautiously, primarily in scenarios where explicit
-        /// control over resource management is required, such as in preparation for application shutdown
-        /// or after a significant change in application state that involves a large number of temporary objects.
+        /// Calculates the optimal degree of parallelism based on the available system resources, to avoid overloading the system.
+        /// this method has no Unit Test because it is just measuring the available memory and processor count
         /// </summary>
-        public void CleanUpRessources()
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-        }
-
-
-
-
+        /// <returns>An integer value representing the optimal degree of parallelism based on the system configuration.</returns>
         public int CalculateOptimalDegreeOfParallelism()
         {
             var maxCoreCount = Environment.ProcessorCount - 2;
             long availableMemoryBytes = GetAvailableMemory();
             float availableMemoryMb = availableMemoryBytes / (1024f * 1024f);  // convert to MB
-
 
             if (availableMemoryMb < 1024)
             {
@@ -104,6 +82,11 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
+        /// <summary>
+        /// Get the available memory in bytes based on the operating system.
+        /// This method has no Unit Test because it is a private method that is called by other public methods.
+        /// </summary>
+        /// <returns>A long value representing the available memory in bytes.</returns>
         private long GetAvailableMemory()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -143,7 +126,6 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-
         /// <summary>
         /// returns number of bytes this object contains
         /// </summary>
@@ -151,28 +133,12 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns></returns>
         public int GetModelSize(object obj)
         {
-            //string jsonString = JsonSerializer.Serialize(obj);
-            //return Encoding.UTF8.GetBytes(jsonString).Length;
-            
             byte[] jsonBytes = JsonSerializer.SerializeToUtf8Bytes(obj);
             return jsonBytes.Length;
         }
 
-        /// <summary>
-        /// override method to take in an list of an object - Ops! obsolete
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="list"></param>
-        /// <returns></returns>
-        //public int GetModelSize<T>(List<T> list)
-        //{
-        //    int totalSize = 0;
-        //    foreach (var item in list)
-        //    {
-        //        totalSize += GetModelSize(item);
-        //    }
-        //    return totalSize;
-        //}
+
+
 
         /// <summary>
         /// converts number of bytes to MB
@@ -183,6 +149,9 @@ namespace DVF_API.Domain.BusinessLogic
         {
             return (float)bytes / (1024 * 1024);
         }
+
+
+
 
         /// <summary>
         /// converts number of bytes to GB
@@ -195,7 +164,14 @@ namespace DVF_API.Domain.BusinessLogic
         }
 
 
-        public string ConvertBytesToFormat(int bytes)
+
+
+        /// <summary>
+        /// Converts the given number of bytes to a human-readable format (e.g., KB, MB, GB).
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns>a string representing the number of bytes in a human-readable format.</returns>
+        public string ConvertBytesToFormat(long bytes)
         {
              int KB = 1024;
              int MB = KB * 1024;
@@ -219,104 +195,113 @@ namespace DVF_API.Domain.BusinessLogic
             }
         }
 
+
+
+
+        /// <summary>
+        ///  Converts the given time measurement to a human-readable format (e.g., milliseconds, seconds, minutes).
+        /// </summary>
+        /// <param name="time"></param>
+        /// <returns>a string representing the time measurement in a human-readable format.</returns>
         public string ConvertTimeMeasurementToFormat(float time)
         {
             if (time < 1000)
             {
-                // Time is in milliseconds
-                return $"{time.ToString("0.##")} ms"; // Limit to 2 decimal places
+                return $"{time.ToString("0.##")} ms";
             }
             else if (time < 60_000)
             {
-                // Time is in seconds
-                return $"{(time / 1000).ToString("0.##")} sec"; // Limit to 2 decimal places
+                return $"{(time / 1000).ToString("0.##")} sec";
             }
             else
             {
-                // Time is in minutes
-                return $"{(time / 60_000).ToString("0.##")} min"; // Limit to 2 decimal places
+                return $"{(time / 60_000).ToString("0.##")} min";
             }
         }
 
 
+
+
         /// <summary>
-        /// begins measuring the time and process of current process, returns the elapsed time and a stopwatch object
+        /// Begins measuring the time and process of the current process,
+        /// returns the initial CPU time and a stopwatch object.
         /// </summary>
-        /// <returns></returns>
-        public (TimeSpan, Stopwatch) BeginMeasureCPU()
+        /// <returns>A tuple containing the initial CPU time and a stopwatch object.</returns>
+        public (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU()
         {
-            cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            // Start measuring CPU usage
-            cpuCounter.NextValue(); // Call NextValue once to get initial value
-
-            // Get CPU usage before executing the code
-            Process processBefore = Process.GetCurrentProcess();
-            TimeSpan cpuTimeBefore = processBefore.TotalProcessorTime;
-
-            // Begin monitoring time spent, cpu usage, and ram
+            Process currentProcess = Process.GetCurrentProcess();
+            TimeSpan initialCpuTime = currentProcess.TotalProcessorTime;
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            return (cpuTimeBefore, stopwatch);
+            return (initialCpuTime, stopwatch);
         }
 
-        public (float CpuUsage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan cpuTimeBefore, Stopwatch stopwatch)
-        {
-            // Record end time
-            stopwatch.Stop();
-            TimeSpan elapsedTime = stopwatch.Elapsed;
-
-            float cpuUsage = cpuCounter.NextValue();
-
-            // Output CPU usage percentage
-            Console.WriteLine("CPU Usage: " + cpuUsage + "%");
 
 
-            var endCpuUsage = Process.GetCurrentProcess().TotalProcessorTime;
-
-            var cpuUsedMs = (endCpuUsage - cpuTimeBefore).TotalMilliseconds;
-            var cpuUsageTotal = (cpuUsedMs / elapsedTime.TotalMilliseconds) * 100;
-            //var cpuUsedMs = (endCpuUsage - cpuTimeBefore).TotalMilliseconds;
-            //var totalMsPassed = (elapsedTime - cpuTimeBefore).TotalMilliseconds;
-            //var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
-
-
-
-            return (CpuUsage: cpuUsage, ElapsedTimeMs: (float)elapsedTime.TotalMilliseconds);
-        }
 
         /// <summary>
-        /// records amount of bytes for current process running
+        /// Stops measuring CPU usage, takes in a TimeSpan and a Stopwatch object,
+        /// returns a tuple containing the CPU usage percentage and elapsed time in milliseconds.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="initialCpuTime"></param>
+        /// <param name="stopwatch"></param>
+        /// <returns>A tuple containing the CPU usage percentage and elapsed time in milliseconds.</returns>
+        public (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan initialCpuTime, Stopwatch stopwatch)
+        {
+            stopwatch.Stop();
+            TimeSpan elapsedTime = stopwatch.Elapsed;
+            Process currentProcess = Process.GetCurrentProcess();
+            TimeSpan finalCpuTime = currentProcess.TotalProcessorTime;
+
+            // Calculate CPU usage in terms of percentage
+            double cpuUsedMs = (finalCpuTime - initialCpuTime).TotalMilliseconds;
+            double elapsedTimeMs = elapsedTime.TotalMilliseconds;
+            double cpuUsagePercentage = (cpuUsedMs / elapsedTimeMs) * 100;
+
+            return (CpuUsagePercentage: (float)cpuUsagePercentage, ElapsedTimeMs: (float)elapsedTimeMs);
+        }
+
+
+
+
+        /// <summary>
+        /// begins measuring ram usage, returns a 64 bit int representing the ram usage before the code block
+        /// </summary>
+        /// <returns>a 64-bit integer representing the RAM usage before executing the code block.</returns>
         public long BeginMeasureMemory()
         {
-            // Force garbage collection before measurement
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
-            // Get the current process
             Process process = Process.GetCurrentProcess();
             long ramUsageBeforeBytes = process.PrivateMemorySize64;
-            // var privateMem = process.PrivateMemorySize64;
-            // Get the RAM usage before executing the code block
+
             return ramUsageBeforeBytes;
         }
 
+
+
+
         /// <summary>
-        /// stops measuring ram usage, takes in a process and an 64 bit int, returns 64 bit int as well
+        /// stops measuring ram usage, takes in a 64 bit int representing the ram usage before the code block, returns the difference in ram usage
         /// </summary>
         /// <param name="ramUsageBeforeBytes"></param>
         /// <param name="currentProcess"></param>
-        /// <returns></returns>
-        public int StopMeasureMemory(long ramUsageBeforeBytes)
+        /// <returns>a 32-bit integer representing the difference in RAM usage after executing the code block.</returns>
+        public long StopMeasureMemory(long ramUsageBeforeBytes)
         {
-            // Get the RAM usage after executing the code block
             long ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
-            // var privateMem = Process.GetCurrentProcess().PrivateMemorySize64;
-            // Calculate the difference in RAM usage
-            return (int)ramUsageAfterBytes - (int)ramUsageBeforeBytes;
+            return ramUsageAfterBytes - ramUsageBeforeBytes;
         }
 
+
+
+
+        /// <summary>
+        /// Converts a given date and time to a float representation for internal use.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <returns>a double value representing the date and time in float format.</returns>
         public double ConvertDateTimeToFloatInternal(string time)
         {
             DateTime parsedDateTime = DateTime.Parse(time);
@@ -324,6 +309,13 @@ namespace DVF_API.Domain.BusinessLogic
         }
 
 
+
+
+        /// <summary>
+        /// Converts coordinates from string format to float format.
+        /// </summary>
+        /// <param name="coordinate"></param>
+        /// <returns>a float value representing the coordinate in float format.</returns>
         public float ConvertCoordinate(string coordinate)
         {
             var normalized = coordinate.Replace(',', '.');
@@ -331,20 +323,23 @@ namespace DVF_API.Domain.BusinessLogic
         }
 
 
+
+
+        /// <summary>
+        /// Splits a double representation of a date and time into separate components.
+        /// </summary>
+        /// <param name="time"></param>
+        /// <returns>an object array containing the date and time components.</returns>
         public object[] MixedYearDateTimeSplitter(double time)
         {
-            object[] result = new object[2]; // Change to 2 elements for Year-Month-Day and Hour-Minute
+            object[] result = new object[2]; 
             string timeString = time.ToString("000000000000");
 
-            // Extract year, month, and day
             result[0] = timeString.Substring(0, 8); // Returns YYYYMMDD
 
-            // Extract HHmm as float
             result[1] = float.Parse(timeString.Substring(8, 4)); // Returns HHmm
 
             return result;
         }
-
-      
     }
 }
