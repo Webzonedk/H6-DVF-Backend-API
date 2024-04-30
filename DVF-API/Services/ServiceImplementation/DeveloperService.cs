@@ -139,7 +139,7 @@ namespace DVF_API.Services.ServiceImplementation
                         {
                             try
                             {
-                                var year = date.Year.ToString("yyyy", CultureInfo.InvariantCulture);
+                                var year = date.Year.ToString();
                                 var monthAndDate = date.Date.ToString("MMdd", CultureInfo.InvariantCulture);
                                 var yearDirectory = Path.Combine(_baseDirectory, year);
                                 Directory.CreateDirectory(yearDirectory);
@@ -295,7 +295,8 @@ namespace DVF_API.Services.ServiceImplementation
             for (int i = 0; i < historicData.Hourly.Time.Length; i++)
             {
                 var random = new Random();
-                DateTime dateTime = DateTime.ParseExact(historicData.Hourly.Time[i], "yyyy-MM-dd HH:mm", null);
+               // string dateTimeString = historicData.Hourly.Time[i].Replace('T', ' ').Insert(historicData.Hourly.Time[i].IndexOf('T'),"HH");
+                DateTime dateTime = DateTime.ParseExact(historicData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", null);
                 float timeAsFloat = ConvertToFloatTime(dateTime.Hour, dateTime.Minute);
 
                 fixed (float* weatherDataPtr = weatherDataList[i].WeatherData)

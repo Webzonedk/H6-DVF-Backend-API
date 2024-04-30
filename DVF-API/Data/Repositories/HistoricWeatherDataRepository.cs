@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace DVF_API.Data.Repositories
 {
@@ -204,11 +205,33 @@ namespace DVF_API.Data.Repositories
 
         private async Task SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
+            // Calculate the total size needed for all structs
+            long totalSize = (long)Marshal.SizeOf<BinaryWeatherStructDto>() * weatherStruct.Length;
+            long structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
+            byte[] buffer = new byte[totalSize];
+
+            unsafe
+            {
+
+                // Extract bytes from each struct and concatenate into one big byte array
+                for (long i = 0; i < weatherStruct.Length; i++)
+                {
+                    // Calculate the start index in the buffer for the current struct
+                    long bufferIndex = i * structSize;
+
+                    // Copy source array to destination array
+                    for (long j = 0; j < structSize; j++)
+                    {
+                        buffer[bufferIndex + j] = weatherStruct[i].BinaryWeatherDataByteArray[j];
+                    }
+                }
+            }
+
             try
             {
                 using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
                 {
-                    await fileStream.WriteAsync(byteArrayToSaveToFile, 0, byteArrayToSaveToFile.Length);
+                    await fileStream.WriteAsync(buffer, 0, buffer.Length);
                 }
             }
             catch (UnauthorizedAccessException ex)
@@ -298,35 +321,36 @@ namespace DVF_API.Data.Repositories
                     dataTable.Columns.Add("LocationId", typeof(int));
                     dataTable.Columns.Add("IsDeleted", typeof(bool));
 
-                    foreach (var data in saveToStorageDtoDataList)
-                    {
-                        string locationKey = $"{data.Latitude},{data.Longitude}";
-                        if (locationDictionary.TryGetValue(locationKey, out int locationId))
-                        {
-                            var weatherData = data.HistoricWeatherData;
-                            for (int i = 0; i < weatherData.Time.Length; i++)
-                            {
+                    //Todo code gives errors needs major refactor------------------------------------------------------
+                    //foreach (var data in saveToStorageDtoDataList)
+                    //{
+                    //    string locationKey = $"{data.Latitude},{data.Longitude}";
+                    //    if (locationDictionary.TryGetValue(locationKey, out int locationId))
+                    //    {
+                    //        var weatherData = data.HistoricWeatherData;
+                    //        for (int i = 0; i < weatherData.Time.Length; i++)
+                    //        {
 
-                                DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
-                                dataTable.Rows.Add(
-                                    Math.Round(weatherData.teTemperature_2m[i], 2),
-                                    Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
-                                    Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
-                                    Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
-                                    Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
-                                    Math.Round(weatherData.Hourly.Rain[i], 2),
-                                    Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
-                                    parsedDate,
-                                    locationId,
-                                    false
-                                );
-                            }
-                        }
-                        else
-                        {
-                            Debug.WriteLine("LocationId ikke fundet for nøglen: " + locationKey);
-                        }
-                    }
+                    //            DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+                    //            dataTable.Rows.Add(
+                    //                Math.Round(weatherData.teTemperature_2m[i], 2),
+                    //                Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
+                    //                Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
+                    //                Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
+                    //                Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
+                    //                Math.Round(weatherData.Hourly.Rain[i], 2),
+                    //                Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
+                    //                parsedDate,
+                    //                locationId,
+                    //                false
+                    //            );
+                    //        }
+                    //    }
+                    //    else
+                    //    {
+                    //        Debug.WriteLine("LocationId ikke fundet for nøglen: " + locationKey);
+                    //    }
+                    //}
 
                     if (dataTable.Rows.Count > 0)
                     {
