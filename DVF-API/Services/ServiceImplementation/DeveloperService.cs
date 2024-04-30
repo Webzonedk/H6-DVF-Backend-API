@@ -114,7 +114,7 @@ namespace DVF_API.Services.ServiceImplementation
                 {
                     return;
                 }
-                WeatherStruct[]? weatherstructDtoArray = null;
+                BinaryWeatherStructDto[]? weatherstructDtoArray = null;
                 foreach (var date in allDates)
                 {
                     try
@@ -159,7 +159,7 @@ namespace DVF_API.Services.ServiceImplementation
                     }
                     finally
                     {
-                        Array.Empty<WeatherStruct>();
+                        Array.Empty<BinaryWeatherStructDto>();
                         _utilityManager.CleanUpRessources();
                     }
                 }
@@ -182,7 +182,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="date"></param>
         /// <param name="locationCoordinatesWithId"></param>
         /// <returns>An array of WeatherStruct</returns>
-        private async Task<WeatherStruct[]> RetreiveProcessWeatherData(string latitude, string longitude, DateTime date, Dictionary<long, string> locationCoordinatesWithId)
+        private async Task<BinaryWeatherStructDto[]> RetreiveProcessWeatherData(string latitude, string longitude, DateTime date, Dictionary<long, string> locationCoordinatesWithId)
         {
             try
             {
@@ -193,18 +193,18 @@ namespace DVF_API.Services.ServiceImplementation
                 HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (originalWeatherDataFromAPI != null)
                 {
-                    WeatherStruct[] weatherDataForSelectedDate = await ProcessAllCoordinates(originalWeatherDataFromAPI, locationCoordinatesWithId);
+                    BinaryWeatherStructDto[] weatherDataForSelectedDate = await ProcessAllCoordinates(originalWeatherDataFromAPI, locationCoordinatesWithId);
                     return weatherDataForSelectedDate;
                 }
                 else
                 {
-                    return Array.Empty<WeatherStruct>();
+                    return Array.Empty<BinaryWeatherStructDto>();
                 }
             }
             catch (Exception ex)
             {
                 // Ready for logging
-                return Array.Empty<WeatherStruct>();
+                return Array.Empty<BinaryWeatherStructDto>();
             }
         }
 
@@ -238,19 +238,19 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="originalWeatherDataFromAPI"></param>
         /// <param name="locationCoordinatesWithId"></param>
         /// <returns></returns>
-        private async Task<WeatherStruct[]> ProcessAllCoordinates(HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<long, string> locationCoordinatesWithId)
+        private async Task<BinaryWeatherStructDto[]> ProcessAllCoordinates(HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<long, string> locationCoordinatesWithId)
         {
             int degreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism();
             SemaphoreSlim semaphore = new SemaphoreSlim(degreeOfParallelism);
 
-            ConcurrentBag<WeatherStruct> weatherStructs = new ConcurrentBag<WeatherStruct>();
+            ConcurrentBag<BinaryWeatherStructDto> weatherStructs = new ConcurrentBag<BinaryWeatherStructDto>();
 
             var tasks = locationCoordinatesWithId.Select(async kvp =>
             {
                 await semaphore.WaitAsync();
                 try
                 {
-                    WeatherStruct[] modifiedData = ConvertToCreateDto(originalWeatherDataFromAPI, kvp.Key);
+                    BinaryWeatherStructDto[] modifiedData = ConvertToCreateDto(originalWeatherDataFromAPI, kvp.Key);
                     foreach (var item in modifiedData)
                     {
                         weatherStructs.Add(item);
@@ -272,7 +272,7 @@ namespace DVF_API.Services.ServiceImplementation
             return SortWeatherData(weatherStructs.ToArray());
         }
 
-        private unsafe WeatherStruct[] SortWeatherData(WeatherStruct[] weatherData)
+        private unsafe BinaryWeatherStructDto[] SortWeatherData(BinaryWeatherStructDto[] weatherData)
         {
             return weatherData.OrderBy(weatherStruct => weatherStruct.LocationId)
                               .ThenBy(weatherStruct => *((float*)weatherStruct.WeatherData))
@@ -288,9 +288,9 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="historicData"></param>
         /// <param name="LocationId"></param>
         /// <returns>An array of WeatherStruct</returns>
-        private unsafe WeatherStruct[] ConvertToCreateDto(HistoricWeatherDataDto historicData, long LocationId)
+        private unsafe BinaryWeatherStructDto[] ConvertToCreateDto(HistoricWeatherDataDto historicData, long LocationId)
         {
-            WeatherStruct[] weatherDataList = new WeatherStruct[historicData.Hourly.Time.Length];
+            BinaryWeatherStructDto[] weatherDataList = new BinaryWeatherStructDto[historicData.Hourly.Time.Length];
 
             for (int i = 0; i < historicData.Hourly.Time.Length; i++)
             {

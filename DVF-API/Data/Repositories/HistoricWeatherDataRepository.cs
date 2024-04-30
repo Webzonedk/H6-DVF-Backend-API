@@ -28,7 +28,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToFileAsync(string fileName, WeatherStruct[] weatherStruct)
+        public async Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
             await SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
 
@@ -37,7 +37,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToDatabaseAsync(DateTime date, WeatherStruct[] weatherStruct)
+        public async Task SaveDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStruct)
         {
             await InsertWeatherDataToDatabaseAsync(date, weatherStruct, _connectionString);
         }
@@ -202,7 +202,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryFilesAsync(string fileName, WeatherStruct[] weatherStruct)
+        private async Task SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
             try
             {
@@ -244,7 +244,7 @@ namespace DVF_API.Data.Repositories
         /// <param name="saveToStorageDtoDataList"></param>
         /// <param name="connectionString"></param>
         /// <returns>Returns a Task.</returns>
-        private async Task InsertWeatherDataToDatabaseAsync(DateTime date, WeatherStruct[] weatherStruct, string connectionString)
+        private async Task InsertWeatherDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStruct, string connectionString)
         {
             try
             {
