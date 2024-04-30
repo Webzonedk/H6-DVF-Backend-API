@@ -270,8 +270,8 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>a 64-bit integer representing the RAM usage before executing the code block.</returns>
         public long BeginMeasureMemory()
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
 
             Process process = Process.GetCurrentProcess();
             long ramUsageBeforeBytes = process.PrivateMemorySize64;

@@ -6,6 +6,7 @@ using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices.ObjectiveC;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
@@ -108,6 +109,8 @@ namespace DVF_API.Services.ServiceImplementation
         {
             try
             {
+                List<Task> tasks = new List<Task>();
+                object lockObject = new object();
                 Dictionary<long, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
                 List<DateTime> allDates = GetAllDates(startDate, endDate);
                 if (locationCoordinatesWithId.Count == 0 || allDates.Count == 0)
@@ -115,53 +118,59 @@ namespace DVF_API.Services.ServiceImplementation
                     return;
                 }
                 BinaryWeatherStructDto[]? weatherstructDtoArray = null;
+
+                SemaphoreSlim semaphoreSlim = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
                 foreach (var date in allDates)
                 {
-                    try
-                    {
-                        weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, locationCoordinatesWithId);
-                        if (weatherstructDtoArray == null)
-                        {
-                            return;
-                        }
-                        if (createDB)
-                        {
-                            try
-                            {
-                                await _historicWeatherDataRepository.SaveDataToDatabaseAsync(date, weatherstructDtoArray);
-                            }
-                            catch (Exception ex)
-                            {
-                                // Ready for logging
-                            }
-                        }
-                        if (createFiles)
-                        {
-                            try
-                            {
-                                var year = date.Year.ToString();
-                                var monthAndDate = date.Date.ToString("MMdd", CultureInfo.InvariantCulture);
-                                var yearDirectory = Path.Combine(_baseDirectory, year);
-                                Directory.CreateDirectory(yearDirectory);
-                                var fileName = Path.Combine(yearDirectory, $"{monthAndDate}.bin");
 
-                                await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, weatherstructDtoArray);
-                            }
-                            catch (Exception ex)
+                    tasks.Add(Task.Run(async () =>
+                    {
+
+                        try
+                        {
+                            await semaphoreSlim.WaitAsync();
+                            weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, locationCoordinatesWithId);
+                            if (weatherstructDtoArray == null)
                             {
-                                // Ready for logging
+                                return;
+                            }
+                            if (createDB)
+                            {
+                                try
+                                {
+                                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(date, weatherstructDtoArray);
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Ready for logging
+                                }
+                            }
+                            if (createFiles)
+                            {
+                                try
+                                {
+                                    var year = date.Year.ToString();
+                                    var monthAndDate = date.Date.ToString("MMdd", CultureInfo.InvariantCulture);
+                                    var yearDirectory = Path.Combine(_baseDirectory, year);
+                                    Directory.CreateDirectory(yearDirectory);
+                                    var fileName = Path.Combine(yearDirectory, $"{monthAndDate}.bin");
+
+
+                                    await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, weatherstructDtoArray);
+                                }
+                                catch { }
                             }
                         }
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                        Array.Empty<BinaryWeatherStructDto>();
-                    }
+                        finally
+                        {
+                            semaphoreSlim?.Release();
+                            Array.Empty<BinaryWeatherStructDto>();
+                        }
+
+                    }));
+
                 }
+                Task.WhenAll(tasks).Wait();
             }
             catch (Exception ex)
             {
@@ -294,7 +303,7 @@ namespace DVF_API.Services.ServiceImplementation
             for (int i = 0; i < historicData.Hourly.Time.Length; i++)
             {
                 var random = new Random();
-               // string dateTimeString = historicData.Hourly.Time[i].Replace('T', ' ').Insert(historicData.Hourly.Time[i].IndexOf('T'),"HH");
+                // string dateTimeString = historicData.Hourly.Time[i].Replace('T', ' ').Insert(historicData.Hourly.Time[i].IndexOf('T'),"HH");
                 DateTime dateTime = DateTime.ParseExact(historicData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", null);
                 float timeAsFloat = ConvertToFloatTime(dateTime.Hour, dateTime.Minute);
 

@@ -105,8 +105,9 @@ namespace DVF_API.Services.ServiceImplementation
                         int index = i;
                         tasks.Add(Task.Run(() =>
                         {
-                            var result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[index]);
-                            modelResult.WeatherData[index] = result;
+                            var result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[index].DateAndTime, double.Parse( modelResult.WeatherData[index].Latitude), double.Parse( modelResult.WeatherData[index].Longitude));
+                            modelResult.WeatherData[index].SunAzimuthAngle = (float)result.SunAzimuth;
+                            modelResult.WeatherData[index].SunElevationAngle = (float)result.SunAltitude;
                         }));
                     }
 
@@ -136,6 +137,7 @@ namespace DVF_API.Services.ServiceImplementation
                 }
 
 
+
             }
             if (!searchDto.ToggleDB)
             {
@@ -156,6 +158,7 @@ namespace DVF_API.Services.ServiceImplementation
                 //get locations before getting weatherdata
                 List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
                 Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtoDictionary = new Dictionary<string, List<BinarySearchInFilesDto>>();
+             
 
                 try
                 {
@@ -168,26 +171,105 @@ namespace DVF_API.Services.ServiceImplementation
                         var monthDay = fullDate.Substring(4, 4);
                         var directory = Path.Combine(_baseDirectory, year);
                         var fileName = Path.Combine(directory, $"{monthDay}.bin");
-                        BinarySearchInFilesDto binaryDataFromFileDto = new BinarySearchInFilesDto();
+                        BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
                         try
                         {
-                            for (int j = 0; j < listOfBinaryDataFromFileDto.Count; j++)
-                            {
-                                BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
-                                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[j].LocationId - 1) * 960;
-                                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[j].LocationId * 960 - 1;
+                            var firstLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).First();
+                            var lastLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).Last();
+                         
+                          
 
-                                if (binarySearchInFilesDtoDictionary.ContainsKey(fileName))
+                            if (listOfBinaryDataFromFileDto.Count == 1)
+                            {
+                                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[0].LocationId - 1) * 960;
+                                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[0].LocationId * 960 - 1;
+                                binarySearchInFilesDto.FilePath = fileName;
+
+                            }
+                            else
+                            {
+                                binarySearchInFilesDto.FromByte = (firstLocationId - 1) * 960;
+                                binarySearchInFilesDto.ToByte = lastLocationId * 960 - 1;
+                                binarySearchInFilesDto.FilePath = fileName;
+                            }
+
+                            BinaryWeatherStructDto[] result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDto);
+
+
+                            Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
+                            //get all cooordinates
+                            try
+                            {
+                                if (totalCoordinates != 1)
                                 {
-                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                    locations = await _locationRepository.GetAllLocationCoordinates();
                                 }
                                 else
                                 {
-                                    binarySearchInFilesDtoDictionary.Add(fileName, new List<BinarySearchInFilesDto>());
-                                    binarySearchInFilesDtoDictionary[fileName].Add(binarySearchInFilesDto);
+                                    var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                                    int locationId = location[0].LocationId;
+                                    var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
+                                    var address = location[0].Address.Split(' ');
+                                    var coordinates = coordinateDictionary[locationId].Split("-");
+                                    LocationDto locationDto = new LocationDto()
+                                    {
+                                        Latitude = coordinates[0],
+                                        Longitude = coordinates[1],
+                                        StreetName = address[0],
+                                        StreetNumber = address[1],
+                                        PostalCode = address[2],
+                                        CityName = address[3]
+                                    };
+                                    locations.Add(locationId, locationDto);
                                 }
+                            }
+                            catch (Exception e)
+                            {
+                                await Console.Out.WriteLineAsync($"exception in locations dictioanry: {e}");
 
                             }
+
+
+                           
+                            long Id = 0;
+                            float time = 0;
+                            string _date = "";
+                            string? _year = "";
+                            
+                            foreach (var weatherDataBlock in result)
+                            {
+                                WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
+
+                                unsafe
+                                {
+                                    BinaryWeatherStructDto datablock = weatherDataBlock;
+                                    Id = datablock.LocationId;
+                                    time = datablock.WeatherData[0];
+                                    _date = Path.GetFileNameWithoutExtension(fileName);
+                                    _year = Path.GetFileName(Path.GetDirectoryName(fileName));
+
+                                    historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(_year, _date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                                    historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
+                                    historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
+                                    historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
+                                    historicWeatherDataToFileDto.TemperatureC = datablock.WeatherData[0];
+                                    historicWeatherDataToFileDto.RelativeHumidity = datablock.WeatherData[1];
+                                    historicWeatherDataToFileDto.Rain = datablock.WeatherData[2];
+                                    historicWeatherDataToFileDto.WindSpeed = datablock.WeatherData[3];
+                                    historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
+                                    historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
+                                    historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
+                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse( historicWeatherDataToFileDto.Latitude),double.Parse( historicWeatherDataToFileDto.Longitude));
+                                    historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
+                                    historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;
+                                }
+
+                               
+
+                                weatherDataDtoList.Add(historicWeatherDataToFileDto);
+                            }
+
+
                         }
                         catch (Exception e)
                         {
@@ -207,7 +289,10 @@ namespace DVF_API.Services.ServiceImplementation
                 (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPU();
                 long currentBytes = _utilityManager.BeginMeasureMemory();
 
-                var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtoDictionary);
+
+
+                //var result = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDtoDictionary);
+
 
 
                 // return recorded CPU usage and memory usage
@@ -215,77 +300,87 @@ namespace DVF_API.Services.ServiceImplementation
                 var byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
                 string measuredRamUsage = _utilityManager.ConvertBytesToFormat(byteMemory);
 
-                Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
+                //Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
 
                 (TimeSpan convertionCpuTimeBefore, Stopwatch convertionStopwatch) = _utilityManager.BeginMeasureCPU();
                 long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
 
-                //get all cooordinates
-                if (totalCoordinates != 1)
-                {
-                    locations = await _locationRepository.GetAllLocationCoordinates();
-                }
-                else
-                {
-                    var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
-                    int locationId = location[0].LocationId;
-                    var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
-                    var address = location[0].Address.Split(' ');
-                    var coordinates = coordinateDictionary[locationId].Split("-");
-                    LocationDto locationDto = new LocationDto()
-                    {
-                        Latitude = coordinates[0],
-                        Longitude = coordinates[1],
-                        StreetName = address[0],
-                        StreetNumber = address[1],
-                        PostalCode = address[2],
-                        CityName = address[3]
-                    };
-                    locations.Add(locationId, locationDto);
-                }
+                ////get all cooordinates
+                //try
+                //{
+                //    if (totalCoordinates != 1)
+                //    {
+                //        locations = await _locationRepository.GetAllLocationCoordinates();
+                //    }
+                //    else
+                //    {
+                //        var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                //        int locationId = location[0].LocationId;
+                //        var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
+                //        var address = location[0].Address.Split(' ');
+                //        var coordinates = coordinateDictionary[locationId].Split("-");
+                //        LocationDto locationDto = new LocationDto()
+                //        {
+                //            Latitude = coordinates[0],
+                //            Longitude = coordinates[1],
+                //            StreetName = address[0],
+                //            StreetNumber = address[1],
+                //            PostalCode = address[2],
+                //            CityName = address[3]
+                //        };
+                //        locations.Add(locationId, locationDto);
+                //    }
+                //}
+                //catch (Exception e)
+                //{
+                //    await Console.Out.WriteLineAsync($"exception in locations dictioanry: {e}");
 
-                List<Task> tasks = new List<Task>();
-                long Id = 0;
-                float time = 0;
-                string _date = "";
-                string? _year = "";
-                unsafe
-                {
-                    foreach (var weatherDataBlock in result)
-                    {
-                        BinaryWeatherStructDto datablock = weatherDataBlock.Value;
-                        Id = datablock.LocationId;
-                        time = datablock.WeatherData[0];
-                        _date = Path.GetFileNameWithoutExtension(weatherDataBlock.Key);
-                        _year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.Key));
-
-                        WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
-
-                        historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(_year, _date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
-                        historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
-                        historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
-                        historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
-                        historicWeatherDataToFileDto.TemperatureC = datablock.WeatherData[0];
-                        historicWeatherDataToFileDto.RelativeHumidity = datablock.WeatherData[1];
-                        historicWeatherDataToFileDto.Rain = datablock.WeatherData[2];
-                        historicWeatherDataToFileDto.WindSpeed = datablock.WeatherData[3];
-                        historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
-                        historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
-                        historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
+                //}
 
 
-                        WeatherDataDto weatherDataDtoCopy = historicWeatherDataToFileDto;
-                        tasks.Add(Task.Run(() =>
-                        {
-                            _solarPositionManager.CalculateSunAngles(weatherDataDtoCopy);
-                        }));
+                //List<Task> tasks = new List<Task>();
+                //long Id = 0;
+                //float time = 0;
+                //string _date = "";
+                //string? _year = "";
+                //foreach (var weatherDataBlock in result)
+                //{
+                //    WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
 
-                        weatherDataDtoList.Add(historicWeatherDataToFileDto);
+                //    unsafe
+                //    {
+                //        BinaryWeatherStructDto datablock = weatherDataBlock.Value;
+                //        Id = datablock.LocationId;
+                //        time = datablock.WeatherData[0];
+                //        _date = Path.GetFileNameWithoutExtension(weatherDataBlock.Key);
+                //        _year = Path.GetFileName(Path.GetDirectoryName(weatherDataBlock.Key));
 
 
-                    }
-                }
-                await Task.WhenAll(tasks);
+                //        historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(_year, _date, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                //        historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
+                //        historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
+                //        historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
+                //        historicWeatherDataToFileDto.TemperatureC = datablock.WeatherData[0];
+                //        historicWeatherDataToFileDto.RelativeHumidity = datablock.WeatherData[1];
+                //        historicWeatherDataToFileDto.Rain = datablock.WeatherData[2];
+                //        historicWeatherDataToFileDto.WindSpeed = datablock.WeatherData[3];
+                //        historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
+                //        historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
+                //        historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
+
+                //    }
+
+                //    WeatherDataDto weatherDataDtoCopy = historicWeatherDataToFileDto;
+                //    tasks.Add(Task.Run(() =>
+                //    {
+                //        _solarPositionManager.CalculateSunAngles(weatherDataDtoCopy);
+                //    }));
+
+                //    weatherDataDtoList.Add(historicWeatherDataToFileDto);
+
+
+                //}
+                //await Task.WhenAll(tasks);
 
                 metaDataDto.WeatherData = weatherDataDtoList;
 

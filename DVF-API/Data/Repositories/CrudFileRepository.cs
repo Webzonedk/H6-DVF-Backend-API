@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
@@ -36,7 +37,7 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="search"></param>
         /// <returns>Returns a list of byte arrays containing the raw data.</returns>
-        public async Task<Dictionary<string, BinaryWeatherStructDto>> FetchWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        public async Task<BinaryWeatherStructDto[]> FetchWeatherDataAsync(BinarySearchInFilesDto binarySearchInFilesDtos)
         {
             return await ReadWeatherDataAsync(binarySearchInFilesDtos);
         }
@@ -72,121 +73,62 @@ namespace DVF_API.Data.Repositories
 
 
 
-
+        /// <summary>
+        /// calls the method to retrieve weatherdata base on all locations within a period or a single location
+        /// </summary>
+        /// <param name="weatherDataFromIOT"></param>
+        /// <exception cref="NotImplementedException"></exception>
         public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
         {
             throw new NotImplementedException();
         }
 
 
-        private async Task<Dictionary<string, BinaryWeatherStructDto>> ReadWeatherDataAsync(Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtos)
+        private unsafe async Task<BinaryWeatherStructDto[]> ReadWeatherDataAsync(BinarySearchInFilesDto binarySearchInFilesDtos)
         {
-
-            List<Task> tasks = new List<Task>();
-            object lockObject = new object();
-            SemaphoreSlim semaphore = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
-
-
-
-            // List<BinaryDataFromFileDto> binaryDataFromFileDtos = new List<BinaryDataFromFileDto>();
-            long keyCount = binarySearchInFilesDtos.Keys.Count;
-            long listLength = binarySearchInFilesDtos.Values.First().Count;
-            long singleBufferSize = listLength * 960;
-            int totalSize = 0;
-           
-            
-
-            // Iterate over each file to calculate the total size
-            foreach (var file in binarySearchInFilesDtos)
-            {
-                FileInfo fileInfo = new FileInfo(file.Key);
-                totalSize += (int)fileInfo.Length;
-            }
-
-            // Calculate the number of structs based on the total size
+            // Calculate the total size needed for all structs
             int structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
-            int numStructs = totalSize / structSize;
-            Dictionary<string, BinaryWeatherStructDto> binaryWeatherStructDtos = new Dictionary<string, BinaryWeatherStructDto>();
-           
+            FileInfo fileInfo = new FileInfo(binarySearchInFilesDtos.FilePath);
+           // int totalSize = (int)fileInfo.Length;
+            long numStructs = (binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte) / structSize + 1;
+            string? filepath = binarySearchInFilesDtos.FilePath;
 
-            foreach (var file in binarySearchInFilesDtos)
+
+            BinaryWeatherStructDto[] binaryWeatherStructDtos = new BinaryWeatherStructDto[numStructs];
+
+            try
             {
-                tasks.Add(Task.Run(async () =>
+                if (File.Exists(filepath))
                 {
-                    await semaphore.WaitAsync();
+                    Debug.WriteLine($"found filepath: {filepath}---------------------");
 
-                    try
+                    using (FileStream stream = new FileStream(filepath!, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                        if (File.Exists(file.Key))
+                      
+                        int bufferSize = (int)(binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte);
+                        long offset = binarySearchInFilesDtos.FromByte;
+                        byte[] buffer = new byte[bufferSize];
+                        stream.Seek(offset, SeekOrigin.Begin);
+                        int bytesRead = stream.Read(buffer, 0, bufferSize);
+
+
+
+                        fixed (byte* pBuffer = buffer)
                         {
-                            Debug.WriteLine($"found filepath: {file.Key}---------------------");
-
-                            using (FileStream stream = new FileStream(file.Key!, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
+                            for (int i = 0; i < numStructs; i++)
                             {
-
-                                foreach (var byteRange in file.Value)
-                                {
-                                    int bytesRead = (int)(byteRange.ToByte - byteRange.FromByte);
-                                    byte[] buffer = new byte[bytesRead];
-
-                                    try
-                                    {
-                                        stream.Seek(byteRange.FromByte, SeekOrigin.Begin);
-                                        int bytesReadTotal = await stream.ReadAsync(buffer, 0, bytesRead);
-                                        if (bytesReadTotal != bytesRead)
-                                        {
-                                            throw new IOException("Not all bytes were read.");
-                                        }
-
-                                        //BinaryDataFromFileDto binaryDataFromFileDto = new BinaryDataFromFileDto()
-                                        //{
-                                        //    BinaryWeatherData = buffer.AsSpan(0, bytesRead).ToArray(), // Create a copy of the data read
-                                        //    YearDate = file.Key
-                                        //};
-
-                                        BinaryWeatherStructDto binaryWeatherStructDto = new BinaryWeatherStructDto();
-
-                                        //copy bytes to struct
-                                        unsafe
-                                        {
-
-                                            for (int i = 0; i < bytesReadTotal; i++)
-                                            {
-                                                binaryWeatherStructDto.BinaryWeatherDataByteArray[i] = buffer[i];
-                                            }
-
-
-                                        }
-
-                                        lock (lockObject)
-                                        {
-                                            binaryWeatherStructDtos.Add(file.Key, binaryWeatherStructDto);
-
-                                        }
-                                    }
-                                    finally
-                                    {
-                                        // bufferPool.Return(buffer); // Return buffer to the pool
-                                    }
-                                }
+                                binaryWeatherStructDtos[i] = *(BinaryWeatherStructDto*)(pBuffer + i * structSize);
                             }
-
                         }
+
                     }
-                    catch (Exception e)
-                    {
-                        Debug.WriteLine(e);
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                }));
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"error occured:--------------{e}");
             }
 
-            await Task.WhenAll(tasks);
-            tasks.Clear();
-            binarySearchInFilesDtos.Clear();
             return binaryWeatherStructDtos;
 
 

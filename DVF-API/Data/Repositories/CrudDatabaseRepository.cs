@@ -599,8 +599,9 @@ namespace DVF_API.Data.Repositories
             catch (Exception e)
             {
                 Debug.WriteLine($"method failed: {e.Message}");
-                throw;
+               
             }
+            return null;
         }
     }
 }
