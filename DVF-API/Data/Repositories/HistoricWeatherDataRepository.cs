@@ -304,12 +304,12 @@ namespace DVF_API.Data.Repositories
                         if (locationDictionary.TryGetValue(locationKey, out int locationId))
                         {
                             var weatherData = data.HistoricWeatherData;
-                            for (int i = 0; i < weatherData.Hourly.Time.Length; i++)
+                            for (int i = 0; i < weatherData.Time.Length; i++)
                             {
 
                                 DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
                                 dataTable.Rows.Add(
-                                    Math.Round(weatherData.Hourly.Temperature_2m[i], 2),
+                                    Math.Round(weatherData.teTemperature_2m[i], 2),
                                     Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
                                     Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
                                     Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),

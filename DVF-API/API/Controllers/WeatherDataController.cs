@@ -35,7 +35,7 @@ namespace DVF_API.API.Controllers
 
 
         [HttpPost("/GetLocations")]
-        public async Task<Dictionary<int, string>> GetLocations(int fromIndex, int toIndex)
+        public async Task<Dictionary<long, string>> GetLocations(int fromIndex, int toIndex)
         {
             return await _dataService.GetLocationCoordinates(fromIndex, toIndex);
         }
