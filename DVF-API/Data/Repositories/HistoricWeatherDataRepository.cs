@@ -28,18 +28,18 @@ namespace DVF_API.Data.Repositories
 
 
 
-        public async Task SaveDataToFileAsync(string fileName, byte[] byteArrayToSaveToFile)
+        public async Task SaveDataToFileAsync(string fileName, WeatherStruct[] weatherStruct)
         {
-            await SaveDataAsBinaryFilesAsync(fileName, byteArrayToSaveToFile);
+            await SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
 
         }
 
 
 
 
-        public async Task SaveDataToDatabaseAsync(List<SaveToStorageDto> saveToStorageDtoList)
+        public async Task SaveDataToDatabaseAsync(DateTime date, WeatherStruct[] weatherStruct)
         {
-            await InsertWeatherDataToDatabaseAsync(saveToStorageDtoList, _connectionString);
+            await InsertWeatherDataToDatabaseAsync(date, weatherStruct, _connectionString);
         }
 
 
@@ -202,7 +202,7 @@ namespace DVF_API.Data.Repositories
 
 
 
-        private async Task SaveDataAsBinaryFilesAsync(string fileName, byte[] byteArrayToSaveToFile)
+        private async Task SaveDataAsBinaryFilesAsync(string fileName, WeatherStruct[] weatherStruct)
         {
             try
             {
@@ -244,7 +244,7 @@ namespace DVF_API.Data.Repositories
         /// <param name="saveToStorageDtoDataList"></param>
         /// <param name="connectionString"></param>
         /// <returns>Returns a Task.</returns>
-        private async Task InsertWeatherDataToDatabaseAsync(List<SaveToStorageDto> saveToStorageDtoDataList, string connectionString)
+        private async Task InsertWeatherDataToDatabaseAsync(DateTime date, WeatherStruct[] weatherStruct, string connectionString)
         {
             try
             {
