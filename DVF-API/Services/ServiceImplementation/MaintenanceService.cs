@@ -3,7 +3,7 @@ using DVF_API.Services.Interfaces;
 
 namespace DVF_API.Services.ServiceImplementation
 {
-    public class MaintenanceService: IMaintenanceService
+    public class MaintenanceService : IMaintenanceService
     {
 
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
@@ -11,7 +11,7 @@ namespace DVF_API.Services.ServiceImplementation
 
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
-       public MaintenanceService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
+        public MaintenanceService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
         {
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;
@@ -23,11 +23,11 @@ namespace DVF_API.Services.ServiceImplementation
         /// Call the delete method from the database and file repository
         /// </summary>
         /// <param name="deleteDataDto"></param>
-        public void RemoveData(DateTime deleteDataDto) 
+        public void RemoveData(DateTime deleteDataDto)
         {
             //Method to delete data
-            //_databaseRepository.DeleteOldData(deleteDataDto);
-            _fileRepository.DeleteOldData(_baseDirectory, _deletedFilesDirectory,deleteDataDto);
+            _databaseRepository.DeleteOldData(deleteDataDto);
+            _fileRepository.DeleteOldData(_baseDirectory, _deletedFilesDirectory, deleteDataDto);
         }
 
 
@@ -38,7 +38,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// </summary>
         public void RestoreData()
         {
-            //_databaseRepository.RestoreAllData();
+            _databaseRepository.RestoreAllData();
             _fileRepository.RestoreAllData(_baseDirectory, _deletedFilesDirectory);
         }
     }

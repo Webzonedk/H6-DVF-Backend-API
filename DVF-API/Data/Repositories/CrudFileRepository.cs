@@ -89,7 +89,7 @@ namespace DVF_API.Data.Repositories
             // Calculate the total size needed for all structs
             int structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
             FileInfo fileInfo = new FileInfo(binarySearchInFilesDtos.FilePath);
-           // int totalSize = (int)fileInfo.Length;
+            // int totalSize = (int)fileInfo.Length;
             long numStructs = (binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte) / structSize + 1;
             string? filepath = binarySearchInFilesDtos.FilePath;
 
@@ -104,7 +104,7 @@ namespace DVF_API.Data.Repositories
 
                     using (FileStream stream = new FileStream(filepath!, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                      
+
                         int bufferSize = (int)(binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte);
                         long offset = binarySearchInFilesDtos.FromByte;
                         byte[] buffer = new byte[bufferSize];
@@ -164,8 +164,11 @@ namespace DVF_API.Data.Repositories
                     {
                         try
                         {
-                            DateTime fileCreationDate = File.GetCreationTime(file);
-                            if (fileCreationDate < olderThanDate)
+                            string[] parts = file.Split(new[] { '/', '\\', '.' }, StringSplitOptions.RemoveEmptyEntries).Where(part => part.Any(char.IsDigit)).ToArray();
+                            string dateString = string.Join("", parts);
+                            DateTime.TryParseExact(dateString, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime fileDate);
+
+                            if (fileDate < olderThanDate)
                             {
                                 string relativePath = Path.GetRelativePath(baseDirectory, file);
                                 string targetPath = Path.Combine(deletedFilesDirectory, relativePath);
