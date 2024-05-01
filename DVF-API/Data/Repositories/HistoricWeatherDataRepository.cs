@@ -29,32 +29,52 @@ namespace DVF_API.Data.Repositories
 
 
 
+        /// <summary>
+        /// Calls the SaveDataAsBinaryFilesAsync method to save weather data to a binary file.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="weatherStruct"></param>
+        /// <returns></returns>
         public async Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
              SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
-
         }
 
 
 
 
-        public async Task SaveDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStruct)
+        /// <summary>
+        /// Calls the InsertWeatherDataToDatabaseAsync method to insert weather data into the database.
+        /// </summary>
+        /// <param name="date"></param>
+        /// <param name="weatherStruct"></param>
+        /// <returns>A Task.</returns>
+        public async Task<bool> SaveDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStruct)
         {
-            await InsertWeatherDataToDatabaseAsync(date, weatherStruct, _connectionString);
+            return await InsertWeatherDataToDatabaseAsync(date, weatherStruct, _connectionString);
         }
 
 
 
 
-        public async Task SaveCitiesToDBAsync(List<City> cities)
+        /// <summary>
+        /// Calls the InsertCitiesToDB method to insert cities into the database.
+        /// </summary>
+        /// <param name="cities"></param>
+        /// <returns>Returns a Task.</returns>
+        public async Task InsertCitiesToDBAsync(List<City> cities)
         {
-            await InsertCitiesToDB(cities);
+            await InsertCitiesToDBAsync(cities);
         }
 
 
 
 
-
+        /// <summary>
+        /// Calls the InsertLocationsToDB method to insert locations into the database.
+        /// </summary>
+        /// <param name="locations"></param>
+        /// <returns>A Task.</returns>
         public async Task SaveLocationsToDBAsync(List<LocationDto> locations)
         {
             await InsertLocationsToDB(locations);
@@ -63,6 +83,11 @@ namespace DVF_API.Data.Repositories
 
 
 
+        /// <summary>
+        /// Calls the InsertCordinatesToDB method to insert coordinates into the database.
+        /// </summary>
+        /// <param name="coordinates"></param>
+        /// <returns></returns>
         public async Task SaveCoordinatesToDBAsync(List<string> coordinates)
         {
             await InsertCordinatesToDB(coordinates);
@@ -71,6 +96,11 @@ namespace DVF_API.Data.Repositories
 
 
 
+        /// <summary>
+        /// Inserts cities into the database using a simple insert operation.
+        /// </summary>
+        /// <param name="cities"></param>
+        /// <returns></returns>
         private async Task InsertCitiesToDB(List<City> cities)
         {
             try
@@ -95,7 +125,6 @@ namespace DVF_API.Data.Repositories
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"An error occurred: {ex.Message}");
                 // Ready for logging
             }
         }
@@ -103,6 +132,11 @@ namespace DVF_API.Data.Repositories
 
 
 
+        /// <summary>
+        /// Inserts locations into the database using a bulk copy operation.
+        /// </summary>
+        /// <param name="locations"></param>
+        /// <returns>Returns a Task.</returns>
         private async Task InsertLocationsToDB(List<LocationDto> locations)
         {
             try
@@ -165,6 +199,11 @@ namespace DVF_API.Data.Repositories
 
 
 
+        /// <summary>
+        /// Inserts coordinates into the database using a bulk copy operation.
+        /// </summary>
+        /// <param name="coordinates"></param>
+        /// <returns>Returns a Task.</returns>
         private async Task InsertCordinatesToDB(List<string> coordinates)
         {
             try
@@ -200,9 +239,11 @@ namespace DVF_API.Data.Repositories
 
 
 
-
-
-
+        /// <summary>
+        /// Saves the weather data to a binary file. using a byte array. The pointer is used to point where the data should be saved.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="weatherStruct"></param>
         private  void SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
             // Calculate the total size needed for all structs
@@ -212,7 +253,6 @@ namespace DVF_API.Data.Repositories
 
             unsafe
             {
-
                 // Extract bytes from each struct and concatenate into one big byte array
                 for (long i = 0; i < weatherStruct.Length; i++)
                 {
@@ -236,27 +276,25 @@ namespace DVF_API.Data.Repositories
             }
             catch (UnauthorizedAccessException ex)
             {
-                Debug.WriteLine($"Access denied: {ex.Message}");
+                // Ready for logging
+                //Debug.WriteLine($"Access denied: {ex.Message}");
             }
             catch (IOException ex)
             {
+                // Ready for logging
                 Debug.WriteLine($"IO error: {ex.Message}");
                 if (ex is PathTooLongException)
                 {
-                    Debug.WriteLine("The specified path, file name, or both exceed the system-defined maximum length.");
+                    // Ready for logging
+                    //Debug.WriteLine("The specified path, file name, or both exceed the system-defined maximum length.");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"A File writer error occurred: {ex.Message}");
+                // Ready for logging
+                //Debug.WriteLine($"A File writer error occurred: {ex.Message}");
             }
         }
-
-
-
-
-
-
 
 
 
@@ -267,46 +305,30 @@ namespace DVF_API.Data.Repositories
         /// <param name="saveToStorageDtoDataList"></param>
         /// <param name="connectionString"></param>
         /// <returns>Returns a Task.</returns>
-        private async Task InsertWeatherDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStruct, string connectionString)
+        private async Task<bool> InsertWeatherDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] weatherStructArray, string connectionString)
         {
             try
             {
-                var locationDictionary = new Dictionary<string, int>();
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     SqlCommand command = new SqlCommand("", connection);
-
-                    // Cache location IDs
-                    command.CommandText = "SELECT LocationId, Latitude, Longitude FROM Locations";
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            string key = $"{reader["Latitude"]},{reader["Longitude"]}";
-                            if (!locationDictionary.ContainsKey(key))
-                            {
-                                locationDictionary[key] = (int)reader["LocationId"];
-                            }
-                        }
-                    }
-
+                    command.CommandTimeout = 300;
                     // Setup temporary table
                     string tempTableName = "#tempWeatherData";
                     command.CommandText = $@"
-                    CREATE TABLE {tempTableName} (
-                    TemperatureC DECIMAL(10, 2),
-                    WindSpeed DECIMAL(10, 2),
-                    WindDirection DECIMAL(10, 2),
-                    WindGust DECIMAL(10, 2),
-                    RelativeHumidity DECIMAL(10, 2),
-                    Rain DECIMAL(10, 2),
-                    GlobalTiltedIrRadiance DECIMAL(10, 2),
-                    DateAndTime DATETIME,
-                    LocationId INT,
-                    IsDeleted BIT
-                    );";
-
+            CREATE TABLE {tempTableName} (
+                TemperatureC DECIMAL(10, 2),
+                WindSpeed DECIMAL(10, 2),
+                WindDirection DECIMAL(10, 2),
+                WindGust DECIMAL(10, 2),
+                RelativeHumidity DECIMAL(10, 2),
+                Rain DECIMAL(10, 2),
+                GlobalTiltedIrRadiance DECIMAL(10, 2),
+                DateAndTime DATETIME,
+                LocationId BIGINT,
+                IsDeleted BIT
+            );";
                     command.ExecuteNonQuery();
 
                     DataTable dataTable = new DataTable();
@@ -318,214 +340,64 @@ namespace DVF_API.Data.Repositories
                     dataTable.Columns.Add("Rain", typeof(float));
                     dataTable.Columns.Add("GlobalTiltedIrRadiance", typeof(float));
                     dataTable.Columns.Add("DateAndTime", typeof(DateTime));
-                    dataTable.Columns.Add("LocationId", typeof(int));
+                    dataTable.Columns.Add("LocationId", typeof(long));
                     dataTable.Columns.Add("IsDeleted", typeof(bool));
 
-                    //Todo code gives errors needs major refactor------------------------------------------------------
-                    //foreach (var data in saveToStorageDtoDataList)
-                    //{
-                    //    string locationKey = $"{data.Latitude},{data.Longitude}";
-                    //    if (locationDictionary.TryGetValue(locationKey, out int locationId))
-                    //    {
-                    //        var weatherData = data.HistoricWeatherData;
-                    //        for (int i = 0; i < weatherData.Time.Length; i++)
-                    //        {
+                    unsafe
+                    {
+                        foreach (var weatherStruct in weatherStructArray)
+                        {
+                            float* data = weatherStruct.WeatherData; // Directly use the pointer
 
-                    //            DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
-                    //            dataTable.Rows.Add(
-                    //                Math.Round(weatherData.teTemperature_2m[i], 2),
-                    //                Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
-                    //                Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
-                    //                Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
-                    //                Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
-                    //                Math.Round(weatherData.Hourly.Rain[i], 2),
-                    //                Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
-                    //                parsedDate,
-                    //                locationId,
-                    //                false
-                    //            );
-                    //        }
-                    //    }
-                    //    else
-                    //    {
-                    //        Debug.WriteLine("LocationId ikke fundet for nøglen: " + locationKey);
-                    //    }
-                    //}
+                            int hour = (int)data[0];
+                            int minutes = (int)((data[0] - hour) * 100); // Extract minutes if they're represented in the decimal
+                            DateTime recordDate = date.Date.AddHours(hour).AddMinutes(minutes);
+
+                            dataTable.Rows.Add(
+                                data[1],  // TemperatureC
+                                data[2],  // WindSpeed
+                                data[3],  // WindDirection
+                                data[4],  // WindGust
+                                data[5],  // RelativeHumidity
+                                data[6],  // Rain
+                                data[7],  // GlobalTiltedIrRadiance
+                                recordDate,
+                                weatherStruct.LocationId,
+                                false
+                            );
+                        }
+                    }
 
                     if (dataTable.Rows.Count > 0)
                     {
-                        int batchSize = 50000; // Kan justeres efter performance tests
-                        for (int i = 0; i < dataTable.Rows.Count; i += batchSize)
+                        using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
                         {
-                            Debug.WriteLine($"Indsætter række {i} til {i + batchSize} af {dataTable.Rows.Count}");
-                            var batchTable = new DataTable();
-                            batchTable = dataTable.Clone(); // Kopier struktur
-                            for (int j = 0; j < batchSize && (i + j) < dataTable.Rows.Count; j++)
-                            {
-                                batchTable.ImportRow(dataTable.Rows[i + j]);
-                            }
-
-                            using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
-                            {
-                                bulkCopy.DestinationTableName = tempTableName;
-                                bulkCopy.BatchSize = batchSize;
-                                await bulkCopy.WriteToServerAsync(batchTable);
-
-                                // MERGE operation
-                                command.CommandText = $@"
-                            MERGE INTO WeatherDatas AS target
-                            USING {tempTableName} AS source
-                            ON target.DateAndTime = source.DateAndTime AND target.LocationId = source.LocationId
-                            WHEN NOT MATCHED THEN
-                            INSERT (TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId, IsDeleted)
-                            VALUES (source.TemperatureC, source.WindSpeed, source.WindDirection, source.WindGust, source.RelativeHumidity, source.Rain, source.GlobalTiltedIrRadiance, source.DateAndTime, source.LocationId, source.IsDeleted);";
-                                await command.ExecuteNonQueryAsync();
-                            }
+                            bulkCopy.DestinationTableName = tempTableName;
+                            bulkCopy.BatchSize = 24000;
+                            bulkCopy.BulkCopyTimeout = 300;
+                            await bulkCopy.WriteToServerAsync(dataTable);
+                            command.CommandText = $@"
+                    MERGE INTO WeatherDatas AS target
+                    USING {tempTableName} AS source
+                    ON target.DateAndTime = source.DateAndTime AND target.LocationId = source.LocationId
+                    WHEN NOT MATCHED THEN
+                    INSERT (TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId, IsDeleted)
+                    VALUES (source.TemperatureC, source.WindSpeed, source.WindDirection, source.WindGust, source.RelativeHumidity, source.Rain, source.GlobalTiltedIrRadiance, source.DateAndTime, source.LocationId, source.IsDeleted);";
+                            await command.ExecuteNonQueryAsync();
                         }
                     }
                     else
                     {
-                        Debug.WriteLine("Ingen data at indsætte.");
+                        //Ready for logging
                     }
                 }
+                return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("Fejl under databaseoperation: " + ex.Message);
-                throw;
+                //Ready for logging
+                return false;
             }
         }
-
-
-
-
-
-
-
-        ///// <summary>
-        ///// Inserts weather data into the database, using a MERGE operation to speed up the process.
-        ///// </summary>
-        ///// <param name="saveToStorageDtoDataList"></param>
-        ///// <param name="connectionString"></param>
-        ///// <returns>Returns a Task.</returns>
-        //private async Task InsertWeatherDataToDatabaseAsync(List<SaveToStorageDto> saveToStorageDtoDataList, string connectionString)
-        //{
-        //    try
-        //    {
-        //        var locationDictionary = new Dictionary<string, int>();
-        //        using (var connection = new SqlConnection(connectionString))
-        //        {
-        //            await connection.OpenAsync();
-        //            SqlCommand command = new SqlCommand("", connection);
-
-        //            // Cache location IDs
-        //            command.CommandText = "SELECT LocationId, Latitude, Longitude FROM Locations";
-        //            using (var reader = await command.ExecuteReaderAsync())
-        //            {
-        //                while (await reader.ReadAsync())
-        //                {
-        //                    string key = $"{reader["Latitude"]},{reader["Longitude"]}";
-        //                    if (!locationDictionary.ContainsKey(key))
-        //                    {
-        //                        locationDictionary[key] = (int)reader["LocationId"];
-        //                    }
-        //                }
-        //            }
-
-        //            // Setup temporary table
-        //            string tempTableName = "#tempWeatherData";
-        //            command.CommandText = $@"
-        //            CREATE TABLE {tempTableName} (
-        //            TemperatureC DECIMAL(10, 2),
-        //            WindSpeed DECIMAL(10, 2),
-        //            WindDirection DECIMAL(10, 2),
-        //            WindGust DECIMAL(10, 2),
-        //            RelativeHumidity DECIMAL(10, 2),
-        //            Rain DECIMAL(10, 2),
-        //            GlobalTiltedIrRadiance DECIMAL(10, 2),
-        //            DateAndTime DATETIME,
-        //            LocationId INT,
-        //            IsDeleted BIT
-        //            );";
-
-        //            command.ExecuteNonQuery();
-
-        //            DataTable dataTable = new DataTable();
-        //            dataTable.Columns.Add("TemperatureC", typeof(float));
-        //            dataTable.Columns.Add("WindSpeed", typeof(float));
-        //            dataTable.Columns.Add("WindDirection", typeof(float));
-        //            dataTable.Columns.Add("WindGust", typeof(float));
-        //            dataTable.Columns.Add("RelativeHumidity", typeof(float));
-        //            dataTable.Columns.Add("Rain", typeof(float));
-        //            dataTable.Columns.Add("GlobalTiltedIrRadiance", typeof(float));
-        //            dataTable.Columns.Add("DateAndTime", typeof(DateTime));
-        //            dataTable.Columns.Add("LocationId", typeof(int));
-        //            dataTable.Columns.Add("IsDeleted", typeof(bool));
-
-        //            foreach (var data in saveToStorageDtoDataList)
-        //            {
-        //                string locationKey = $"{data.Latitude},{data.Longitude}";
-        //                if (locationDictionary.TryGetValue(locationKey, out int locationId))
-        //                {
-        //                    var weatherData = data.HistoricWeatherData;
-        //                    for (int i = 0; i < weatherData.Hourly.Time.Length; i++)
-        //                    {
-
-        //                        DateTime parsedDate = DateTime.ParseExact(weatherData.Hourly.Time[i], "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
-        //                        dataTable.Rows.Add(
-        //                            Math.Round(weatherData.Hourly.Temperature_2m[i], 2),
-        //                            Math.Round(weatherData.Hourly.Wind_Speed_10m[i], 2),
-        //                            Math.Round(weatherData.Hourly.Wind_Direction_10m[i], 2),
-        //                            Math.Round(weatherData.Hourly.Wind_Gusts_10m[i], 2),
-        //                            Math.Round(weatherData.Hourly.Relative_Humidity_2m[i], 2),
-        //                            Math.Round(weatherData.Hourly.Rain[i], 2),
-        //                            Math.Round(weatherData.Hourly.Global_Tilted_Irradiance_Instant[i], 2),
-        //                            parsedDate,
-        //                            locationId,
-        //                            false
-        //                        );
-        //                    }
-        //                }
-        //                else
-        //                {
-        //                    Debug.WriteLine("LocationId ikke fundet for nøglen: " + locationKey);
-        //                }
-        //            }
-
-        //            if (dataTable.Rows.Count > 0)
-        //            {
-        //                using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
-        //                {
-        //                    bulkCopy.DestinationTableName = tempTableName;
-        //                    await bulkCopy.WriteToServerAsync(dataTable);
-
-        //                    // MERGE operation
-        //                    command.CommandText = $@"
-        //                    MERGE INTO WeatherDatas AS target
-        //                    USING {tempTableName} AS source
-        //                    ON target.DateAndTime = source.DateAndTime AND target.LocationId = source.LocationId
-        //                    WHEN NOT MATCHED THEN
-        //                    INSERT (TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId, IsDeleted)
-        //                    VALUES (source.TemperatureC, source.WindSpeed, source.WindDirection, source.WindGust, source.RelativeHumidity, source.Rain, source.GlobalTiltedIrRadiance, source.DateAndTime, source.LocationId, source.IsDeleted);";
-        //                    await command.ExecuteNonQueryAsync();
-        //                }
-        //            }
-        //            else
-        //            {
-        //                Debug.WriteLine("Ingen data at indsætte.");
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine("Fejl under databaseoperation: " + ex.Message);
-        //        throw;
-        //    }
-        //}
-
-
-
-
-
     }
 }
