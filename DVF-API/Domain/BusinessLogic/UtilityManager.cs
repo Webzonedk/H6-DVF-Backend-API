@@ -17,7 +17,10 @@ namespace DVF_API.Domain.BusinessLogic
     {
         private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
+        private TimeSpan _initialCpuTime;
+       
 
+        
 
         /// <summary>
         /// A simple password-based authentication method that checks if the provided password matches the predefined secret password.
@@ -250,7 +253,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// It should rather be tested using integration tests.
         /// </summary>
         /// <returns>A tuple containing the initial CPU time and a stopwatch object.</returns>
-        public (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU()
+        public (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPUTime()
         {
             Process currentProcess = Process.GetCurrentProcess();
             TimeSpan initialCpuTime = currentProcess.TotalProcessorTime;
@@ -271,7 +274,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// <param name="initialCpuTime"></param>
         /// <param name="stopwatch"></param>
         /// <returns>A tuple containing the CPU usage percentage and elapsed time in milliseconds.</returns>
-        public (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan initialCpuTime, Stopwatch stopwatch)
+        public (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPUTime(TimeSpan initialCpuTime, Stopwatch stopwatch)
         {
             stopwatch.Stop();
             TimeSpan elapsedTime = stopwatch.Elapsed;
@@ -279,9 +282,12 @@ namespace DVF_API.Domain.BusinessLogic
             TimeSpan finalCpuTime = currentProcess.TotalProcessorTime;
 
             // Calculate CPU usage in terms of percentage
-            double cpuUsedMs = (finalCpuTime - initialCpuTime).TotalMilliseconds;
+            //double cpuUsedMs = (finalCpuTime - initialCpuTime).TotalMilliseconds;
+            //double elapsedTimeMs = elapsedTime.TotalMilliseconds;
+            //double cpuUsagePercentage = (cpuUsedMs / elapsedTimeMs) * 100;
+            double cpuUsedMs = (finalCpuTime - _initialCpuTime).TotalMilliseconds;
             double elapsedTimeMs = elapsedTime.TotalMilliseconds;
-            double cpuUsagePercentage = (cpuUsedMs / elapsedTimeMs) * 100;
+            double cpuUsagePercentage = (cpuUsedMs / (elapsedTimeMs * Environment.ProcessorCount)) * 100;
 
             return (CpuUsagePercentage: (float)cpuUsagePercentage, ElapsedTimeMs: (float)elapsedTimeMs);
         }
@@ -319,12 +325,18 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>a 32-bit integer representing the difference in RAM usage after executing the code block.</returns>
         public long StopMeasureMemory(long ramUsageBeforeBytes)
         {
+            long calcDifference = 0;
             long ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
-            return ramUsageAfterBytes - ramUsageBeforeBytes;
+             calcDifference = ramUsageAfterBytes - ramUsageBeforeBytes;
+            
+            //try one more time
+            if(calcDifference <= 0)
+            {
+                ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
+                calcDifference = ramUsageAfterBytes - ramUsageBeforeBytes;
+            }
+            return calcDifference;
         }
-
-
-
 
     }
 }

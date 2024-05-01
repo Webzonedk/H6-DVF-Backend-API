@@ -11,8 +11,8 @@ namespace DVF_API.Domain.Interfaces
         string ConvertBytesToFormat(long bytes);
         long ConvertDateTimeToDouble(string time);
         object[] MixedYearDateTimeSplitter(double time);
-        (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU();
-        (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan initialCpuTime, Stopwatch stopwatch);
+        (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPUTime();
+        (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPUTime(TimeSpan initialCpuTime, Stopwatch stopwatch);
         long BeginMeasureMemory();
         long StopMeasureMemory(long ramUsageBeforeBytes);
     }
