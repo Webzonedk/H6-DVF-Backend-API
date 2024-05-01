@@ -6,14 +6,17 @@ using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices.ObjectiveC;
 using System.Text.Json;
 
 namespace DVF_API.Services.ServiceImplementation
 {
+
+    /// <summary>
+    /// This class is used to create the historic weather data for the given date range and save it to the database and/or files.
+    /// It also creates the cities, locations, and coordinates for the repository.
+    /// </summary>
     public class DeveloperService : IDeveloperService
     {
-
         #region fields
         private readonly HttpClient _httpClient = new HttpClient();
 
@@ -23,6 +26,13 @@ namespace DVF_API.Services.ServiceImplementation
         private string _latitude = "55.3235";
         private string _longitude = "11.9639";
 
+        //Used for The database writing
+        private ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])> _databaseWriteQueue = new ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])>();
+        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(Environment.ProcessorCount - 4);
+        private volatile bool _isDataLoadingComplete = false;
+        private Dictionary<long, string> _locationCoordinatesWithId = new Dictionary<long, string>();
+        List<DateTime> _allDates = new List<DateTime>();
+        //---------------------------
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
         private readonly IUtilityManager _utilityManager;
@@ -53,6 +63,16 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+        /// <summary>
+        /// Calls the method to create the historic weather data for the given date range and calling the repository to save the data to the database and/or files
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="clientIp"></param>
+        /// <param name="createFiles"></param>
+        /// <param name="createDB"></param>
+        /// <param name="startDate"></param>
+        /// <param name="endDate"></param>
+        /// <returns>Returns a task</returns>
         public async Task CreateHistoricWeatherDataAsync(string password, string clientIp, bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
         {
             if (_utilityManager.Authenticate(password, clientIp))
@@ -64,6 +84,12 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+        /// <summary>
+        /// Calls the method to create the cities for the repository
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="clientIp"></param>
+        /// <returns></returns>
         public async Task CreateCities(string password, string clientIp)
         {
             if (_utilityManager.Authenticate(password, clientIp))
@@ -75,6 +101,12 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+        /// <summary>
+        /// Calls the method to create the locations for the repository
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="clientIp"></param>
+        /// <returns></returns>
         public async Task CreateLocations(string password, string clientIp)
         {
             if (_utilityManager.Authenticate(password, clientIp))
@@ -86,6 +118,12 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+        /// <summary>
+        /// Calls the method to create the coordinates for the repository
+        /// </summary>
+        /// <param name="password"></param>
+        /// <param name="clientIp"></param>
+        /// <returns></returns>
         public async Task CreateCoordinates(string password, string clientIp)
         {
             if (_utilityManager.Authenticate(password, clientIp))
@@ -106,6 +144,137 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="endDate"></param>
         /// <returns>A task</returns>
         private async Task CreateHistoricWeatherData(bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
+        {
+            try
+            {
+                _locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
+                _allDates = GetAllDates(startDate, endDate);
+                Task dbWorker = Task.Run(() => ProcessDatabaseQueue()); // Start the database worker
+                if (_locationCoordinatesWithId.Count == 0 || _allDates.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var date in _allDates)
+                {
+                    BinaryWeatherStructDto[]? weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, _locationCoordinatesWithId);
+                    if (weatherstructDtoArray == null || weatherstructDtoArray.Length == 0)
+                    {
+                        continue; // Skip if no data to process
+                    }
+
+                    if (createFiles)
+                    {
+                        _ = SaveDataToFiles(date, weatherstructDtoArray); // File saving remains asynchronous
+                    }
+
+                    if (createDB)
+                    {
+                        EnqueueDataForDatabase(date, weatherstructDtoArray); // Enqueue data for database writing
+                    }
+
+                }
+                Array.Empty<BinaryWeatherStructDto[]>(); // Clear the array to free up memory
+                _locationCoordinatesWithId.Clear(); // Clear the dictionary to free up memory
+                _allDates.Clear(); // Clear the list to free up memory
+                _isDataLoadingComplete = true;
+                await dbWorker; // Ensure the database worker completes before finishing
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error in CreateHistoricWeatherData: " + ex.Message);
+                throw;
+            }
+        }
+
+
+
+
+        /// <summary>
+        /// Enqueues the data for database writing to the queue to ensure that only one write operation happens at a time and that the data is saved in chunks to avoid server timeouts
+        /// </summary>
+        /// <param name="date"></param>
+        /// <param name="weatherDataArray"></param>
+        /// <param name="chunkSize"></param>
+        private void EnqueueDataForDatabase(DateTime date, BinaryWeatherStructDto[] weatherDataArray, int chunkSize = 2400000)
+        {
+            for (int i = 0; i < weatherDataArray.Length; i += chunkSize)
+            {
+                BinaryWeatherStructDto[] chunk = weatherDataArray.Skip(i).Take(chunkSize).ToArray();
+                _databaseWriteQueue.Enqueue((date, chunk));
+            }
+        }
+
+
+
+
+        /// <summary>
+        /// Processes the database queue and calls the repository to save the data to the database
+        /// </summary>
+        /// <returns>A task</returns>
+        private async Task ProcessDatabaseQueue()
+        {
+            while (!_isDataLoadingComplete || !_databaseWriteQueue.IsEmpty) // Continues checking the queue
+            {
+                if (_databaseWriteQueue.TryDequeue(out var item))
+                {
+                    bool isDoneSavingToDb;
+                    await _dbSemaphore.WaitAsync();
+                    try
+                    {
+                        do
+                        {
+                            isDoneSavingToDb = await _historicWeatherDataRepository.SaveDataToDatabaseAsync(item.Item1, item.Item2);
+                            if (!isDoneSavingToDb)
+                            {
+                                await Task.Delay(100); // Wait 100ms before trying again if not successful
+                            }
+                        } while (!isDoneSavingToDb); // Repeat until data is successfully saved
+                    }
+                    finally
+                    {
+                        _dbSemaphore.Release();
+                    }
+                }
+                else
+                {
+                    await Task.Delay(1000); // Wait for a moment before trying again if the queue is temporarily empty
+                }
+            }
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the repository to save the data to files
+        /// </summary>
+        /// <param name="date"></param>
+        /// <param name="weatherDataArray"></param>
+        /// <returns>A task</returns>
+        private async Task SaveDataToFiles(DateTime date, BinaryWeatherStructDto[] weatherDataArray)
+        {
+            var year = date.Year.ToString();
+            var monthAndDate = date.ToString("MMdd", CultureInfo.InvariantCulture);
+            var yearDirectory = Path.Combine(_baseDirectory, year);
+            Directory.CreateDirectory(yearDirectory);
+            var fileName = Path.Combine(yearDirectory, $"{monthAndDate}.bin");
+            await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, weatherDataArray);
+        }
+
+
+
+
+
+        /// <summary>
+        /// Creates the historic weather data for the given date range and saves it to the database and/or files
+        /// </summary>
+        /// <param name="createFiles"></param>
+        /// <param name="createDB"></param>
+        /// <param name="startDate"></param>
+        /// <param name="endDate"></param>
+        /// <returns>A task</returns>
+        private async Task CreateHistoricWeatherData_org(bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
         {
             try
             {
@@ -411,7 +580,7 @@ namespace DVF_API.Services.ServiceImplementation
                     return;
                 }
 
-                await _historicWeatherDataRepository.SaveCitiesToDBAsync(cityModels);
+                await _historicWeatherDataRepository.InsertCitiesToDBAsync(cityModels);
             }
             catch (Exception ex)
             {

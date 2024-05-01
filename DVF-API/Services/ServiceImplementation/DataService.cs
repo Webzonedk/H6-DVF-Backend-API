@@ -228,7 +228,8 @@ namespace DVF_API.Services.ServiceImplementation
                             }
 
 
-                           
+
+
                             long Id = 0;
                             float time = 0;
                             string _date = "";
@@ -257,7 +258,7 @@ namespace DVF_API.Services.ServiceImplementation
                                     historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
                                     historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
                                     historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
-                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse( historicWeatherDataToFileDto.Latitude),double.Parse( historicWeatherDataToFileDto.Longitude));
+                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse( historicWeatherDataToFileDto.Latitude.Replace(".",",")),double.Parse( historicWeatherDataToFileDto.Longitude.Replace(".", ",")));
                                     historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
                                     historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;
                                 }
