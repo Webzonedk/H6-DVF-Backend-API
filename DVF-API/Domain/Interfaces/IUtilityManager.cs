@@ -9,7 +9,7 @@ namespace DVF_API.Domain.Interfaces
         int GetModelSize(object obj);
         string ConvertTimeMeasurementToFormat(float time);
         string ConvertBytesToFormat(long bytes);
-        double ConvertDateTimeToDouble(string time);
+        long ConvertDateTimeToDouble(string time);
         object[] MixedYearDateTimeSplitter(double time);
         (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPU();
         (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPU(TimeSpan initialCpuTime, Stopwatch stopwatch);

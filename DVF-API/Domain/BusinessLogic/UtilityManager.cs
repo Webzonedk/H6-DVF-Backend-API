@@ -191,72 +191,19 @@ namespace DVF_API.Domain.BusinessLogic
             }
         }
 
-        //public double ConvertDateTimeToDouble(string date)
-        //{
-        //    try
-        //    {
-        //        DateTime parsedDateTime;
-        //        string[] formats = { "dd-MM-yyyy", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd" };
-
-        //        if (DateTime.TryParseExact(date, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDateTime))
-        //        {
-        //            string formattedDateTime = parsedDateTime.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture);
-        //            Debug.WriteLine($"Formatted DateTime: {formattedDateTime}");
-        //            double result = double.Parse(formattedDateTime, CultureInfo.InvariantCulture);
-        //            Debug.WriteLine($"Parsed Double: {result}");
-        //            return result;
-        //        }
-        //        else
-        //        {
-        //            Debug.WriteLine("Unable to parse date.");
-        //            return -1; // Eller en anden fejlkode
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine($"Error parsing date or converting to double: {ex.Message}. Stack Trace: {ex.StackTrace}");
-        //        throw; // Kast exception videre eller håndter den på anden vis
-        //    }
-        //}
-
-
-
-
-
-
-        public double ConvertDateTimeToDouble(string time)
-        {
-            DateTime parsedDateTime = DateTime.Parse(time);
-            return double.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
-        }
 
 
 
         /// <summary>
-        /// Converts a given date and time to a float representation for internal use.
+        /// Converts a given date and time to a long value in
         /// </summary>
         /// <param name="time"></param>
         /// <returns>a double value representing the date and time in float format. Alternatively, returns 0 on error.</returns>
-        public double ConvertDateTimeToDouble_old(string date)
+        public long ConvertDateTimeToDouble(string time)
         {
-            try
-            {
-                DateOnly parsedDate = DateOnly.Parse(date);
-                DateTime parsedDateTime = parsedDate.ToDateTime(new TimeOnly(0, 0));
-
-                string formattedDateTime = parsedDateTime.ToString("yyyyMMddHHmm");
-                Debug.WriteLine($"Formatted DateTime: {formattedDateTime}");
-                //var result = double.Parse(formattedDateTime);
-                var result = 2;
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error parsing date: {ex.Message}. Stack Trace: {ex.StackTrace}");
-                return 0; // Return default value on error
-            }
+            DateTime parsedDateTime = DateTime.Parse(time);
+            return long.Parse(parsedDateTime.ToString("yyyyMMddHHmm"));
         }
-
 
 
 
@@ -268,21 +215,31 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>an object array containing the date and time components.</returns>
         public object[] MixedYearDateTimeSplitter(double time)
         {
-            string timeString = time.ToString("000000000000");
+            string timeString;
             object[] result = new object[2];
 
             try
             {
+                // Sikrer at input er i et gyldigt omfang for dato/tid konvertering
+                if (time < 0 || time > 999999999999)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(time), "Input is out of range for a valid date-time representation.");
+                }
+
+                timeString = time.ToString("000000000000");
                 result[0] = timeString.Substring(0, 8);
                 result[1] = float.Parse(timeString.Substring(8, 4));
             }
             catch
             {
+                // Returner standardværdier ved fejl
                 result[0] = "00000000";
                 result[1] = 0f;
             }
             return result;
         }
+
+
 
 
 

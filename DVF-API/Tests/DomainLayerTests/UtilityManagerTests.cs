@@ -39,7 +39,7 @@ namespace DVF_API.Tests.DomainLayerTests
                     }
                     throw new UnauthorizedAccessException("Unauthorized - Incorrect password");
                 });
-            //
+            
             _utilityManager = mock.Object;
 
             // Ensure dictionary is clean before each test
@@ -158,13 +158,22 @@ namespace DVF_API.Tests.DomainLayerTests
         /// <param name="time"></param>
         /// <param name="expected"></param>
         [Theory]
-        [InlineData("15-04-2023", 202304150000)]  // Default time as 0000 (midnight)
-        [InlineData("31-12-1999", 199912310000)]
-        [InlineData("1999-12-01", 199912010000)]// Default time as 0000 (midnight)
-        public void ConvertDateTimeToFloat_ReturnsExpectedDouble(string date, double expected)
+        [InlineData("2023-04-15 00:00", 202304150000)]
+        [InlineData("1999-12-31 23:59", 199912312359)]
+        [InlineData("2024-01-01 12:34", 202401011234)]
+        public void ConvertDateTimeToDouble_ReturnsExpectedLong(string input, long expected)
         {
-            double result = _utilityManager.ConvertDateTimeToDouble(date);
-            result.Should().Be(expected);
+            var utilityManager = new UtilityManager();
+            long actual = utilityManager.ConvertDateTimeToDouble(input);
+            Assert.Equal(expected, actual);
+        }
+
+        [Fact]
+        public void ConvertDateTimeToDouble_ThrowsFormatExceptionOnInvalidInput()
+        {
+            var utilityManager = new UtilityManager();
+            string invalidInput = "invalid-date-format";
+            Assert.Throws<FormatException>(() => utilityManager.ConvertDateTimeToDouble(invalidInput));
         }
 
 
@@ -191,14 +200,41 @@ namespace DVF_API.Tests.DomainLayerTests
         /// <param name="expectedDate"></param>
         /// <param name="expectedTime"></param>
         [Theory]
-        [InlineData(202304151345, "20230415", 1345)]
-        [InlineData(999999999999, "99999999", 9999)] // Test with a valid but unlikely double
-        [InlineData(123, "00000123", 0)] // Assuming it defaults time to 0000 if it can't parse correctly
-        public void MixedYearDateTimeSplitter_HandlesVariousInputs(double time, string expectedDate, float expectedTime)
+        [InlineData(202304150000, "20230415", 0f)] // Normal case
+        [InlineData(199912312359, "19991231", 2359f)] // Edge case with time at the last minute of the day
+        [InlineData(000000000000, "00000000", 0f)] // Minimum boundary value
+        public void MixedYearDateTimeSplitter_ReturnsCorrectComponents(double input, string expectedDate, float expectedTime)
         {
-            object[] result = _utilityManager.MixedYearDateTimeSplitter(time);
-            result[0].Should().Be(expectedDate);
-            ((float)result[1]).Should().Be(expectedTime);
+            // Arrange
+            var utilityManager = new UtilityManager();
+
+            // Act
+            var result = utilityManager.MixedYearDateTimeSplitter(input);
+
+            // Assert
+            Assert.Equal(expectedDate, result[0]);
+            Assert.Equal(expectedTime, (float)result[1]);
+        }
+
+
+
+
+        /// <summary>
+        /// Tests the MixedYearDateTimeSplitter method with invalid input.
+        /// </summary>
+        [Fact]
+        public void MixedYearDateTimeSplitter_HandlesInvalidInput()
+        {
+            // Arrange
+            var utilityManager = new UtilityManager();
+            double invalidInput = -123456789012; // Negative or non-date value
+
+            // Act
+            var result = utilityManager.MixedYearDateTimeSplitter(invalidInput);
+
+            // Assert
+            Assert.Equal("00000000", result[0]);
+            Assert.Equal(0f, (float)result[1]);
         }
 
     }

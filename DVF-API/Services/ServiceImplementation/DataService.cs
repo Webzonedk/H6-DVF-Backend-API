@@ -22,19 +22,17 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly ICrudDatabaseRepository _crudDatabaseRepository;
         private readonly ILocationRepository _locationRepository;
         private readonly ICrudFileRepository _crudFileRepository;
-        private readonly IBinaryConversionManager _binaryConversionManager;
         private readonly ISolarPositionManager _solarPositionManager;
         private readonly IUtilityManager _utilityManager;
 
         public DataService(
             ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository,
-            ICrudFileRepository crudFileRepository, IBinaryConversionManager binaryConversionManager,
-            ISolarPositionManager solarPositionManager, IUtilityManager utilityManager)
+            ISolarPositionManager solarPositionManager, IUtilityManager utilityManager,
+            ICrudFileRepository crudFileRepository)
         {
             _crudDatabaseRepository = crudDatabaseRepository;
             _locationRepository = locationRepository;
             _crudFileRepository = crudFileRepository;
-            _binaryConversionManager = binaryConversionManager;
             _solarPositionManager = solarPositionManager;
             _utilityManager = utilityManager;
         }
