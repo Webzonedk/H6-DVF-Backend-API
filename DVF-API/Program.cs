@@ -29,7 +29,6 @@ builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
                  
 builder.Services.AddScoped<ISolarPositionManager, SolarPositionManager>();
 builder.Services.AddScoped<IUtilityManager, UtilityManager>();
-builder.Services.AddScoped<IBinaryConversionManager, BinaryConversionManager>();
 
 
 var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";
