@@ -28,7 +28,7 @@ namespace DVF_API.Services.ServiceImplementation
 
         //Used for The database writing
         private ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])> _databaseWriteQueue = new ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])>();
-        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(Environment.ProcessorCount - 4);
+        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(2);
         private volatile bool _isDataLoadingComplete = false;
         private Dictionary<long, string> _locationCoordinatesWithId = new Dictionary<long, string>();
         List<DateTime> _allDates = new List<DateTime>();

@@ -282,7 +282,7 @@ namespace DVF_API.Data.Repositories
             catch (IOException ex)
             {
                 // Ready for logging
-                Debug.WriteLine($"IO error: {ex.Message}");
+                //Debug.WriteLine($"IO error: {ex.Message}");
                 if (ex is PathTooLongException)
                 {
                     // Ready for logging
