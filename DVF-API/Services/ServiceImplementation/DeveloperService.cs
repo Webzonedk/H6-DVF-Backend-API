@@ -196,7 +196,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="date"></param>
         /// <param name="weatherDataArray"></param>
         /// <param name="chunkSize"></param>
-        private void EnqueueDataForDatabase(DateTime date, BinaryWeatherStructDto[] weatherDataArray, int chunkSize = 2400000)
+        private void EnqueueDataForDatabase(DateTime date, BinaryWeatherStructDto[] weatherDataArray, int chunkSize = 500000)
         {
             for (int i = 0; i < weatherDataArray.Length; i += chunkSize)
             {
@@ -227,7 +227,7 @@ namespace DVF_API.Services.ServiceImplementation
                             isDoneSavingToDb = await _historicWeatherDataRepository.SaveDataToDatabaseAsync(item.Item1, item.Item2);
                             if (!isDoneSavingToDb)
                             {
-                                await Task.Delay(100); // Wait 100ms before trying again if not successful
+                                await Task.Delay(30000); // Wait 30 sec before trying again if not successful
                             }
                         } while (!isDoneSavingToDb); // Repeat until data is successfully saved
                     }
@@ -580,7 +580,7 @@ namespace DVF_API.Services.ServiceImplementation
                     return;
                 }
 
-                await _historicWeatherDataRepository.InsertCitiesToDBAsync(cityModels);
+                await _historicWeatherDataRepository.SaveCitiesToDBAsync(cityModels);
             }
             catch (Exception ex)
             {

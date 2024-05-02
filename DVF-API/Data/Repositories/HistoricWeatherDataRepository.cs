@@ -62,9 +62,9 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="cities"></param>
         /// <returns>Returns a Task.</returns>
-        public async Task InsertCitiesToDBAsync(List<City> cities)
+        public async Task SaveCitiesToDBAsync(List<City> cities)
         {
-            await InsertCitiesToDBAsync(cities);
+            await InsertCitiesToDB(cities);
         }
 
 
@@ -313,7 +313,7 @@ namespace DVF_API.Data.Repositories
                 {
                     await connection.OpenAsync();
                     SqlCommand command = new SqlCommand("", connection);
-                    command.CommandTimeout = 300;
+                    command.CommandTimeout = 600;
                     // Setup temporary table
                     string tempTableName = "#tempWeatherData";
                     command.CommandText = $@"
@@ -373,8 +373,8 @@ namespace DVF_API.Data.Repositories
                         using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
                         {
                             bulkCopy.DestinationTableName = tempTableName;
-                            bulkCopy.BatchSize = 24000;
-                            bulkCopy.BulkCopyTimeout = 300;
+                            bulkCopy.BatchSize = 5000;
+                            bulkCopy.BulkCopyTimeout = 600;
                             await bulkCopy.WriteToServerAsync(dataTable);
                             command.CommandText = $@"
                     MERGE INTO WeatherDatas AS target
