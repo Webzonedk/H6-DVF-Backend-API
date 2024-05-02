@@ -28,7 +28,7 @@ namespace DVF_API.Services.ServiceImplementation
 
         //Used for The database writing
         private ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])> _databaseWriteQueue = new ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])>();
-        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(2);
+        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(3);
         private volatile bool _isDataLoadingComplete = false;
         private Dictionary<long, string> _locationCoordinatesWithId = new Dictionary<long, string>();
         List<DateTime> _allDates = new List<DateTime>();
@@ -165,7 +165,7 @@ namespace DVF_API.Services.ServiceImplementation
 
                     if (createFiles)
                     {
-                        _ = SaveDataToFiles(date, weatherstructDtoArray); // File saving remains asynchronous
+                        await SaveDataToFilesAsync(date, weatherstructDtoArray); // File saving remains asynchronous but is awaited
                     }
 
                     if (createDB)
@@ -173,8 +173,8 @@ namespace DVF_API.Services.ServiceImplementation
                         EnqueueDataForDatabase(date, weatherstructDtoArray); // Enqueue data for database writing
                     }
 
+                weatherstructDtoArray = null; // Clear the array to free up memory
                 }
-                Array.Empty<BinaryWeatherStructDto[]>(); // Clear the array to free up memory
                 _locationCoordinatesWithId.Clear(); // Clear the dictionary to free up memory
                 _allDates.Clear(); // Clear the list to free up memory
                 _isDataLoadingComplete = true;
@@ -241,6 +241,7 @@ namespace DVF_API.Services.ServiceImplementation
                     await Task.Delay(1000); // Wait for a moment before trying again if the queue is temporarily empty
                 }
             }
+            _databaseWriteQueue.Clear(); // Clear the queue to free up memory
         }
 
 
@@ -252,7 +253,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="date"></param>
         /// <param name="weatherDataArray"></param>
         /// <returns>A task</returns>
-        private async Task SaveDataToFiles(DateTime date, BinaryWeatherStructDto[] weatherDataArray)
+        private async Task SaveDataToFilesAsync(DateTime date, BinaryWeatherStructDto[] weatherDataArray)
         {
             var year = date.Year.ToString();
             var monthAndDate = date.ToString("MMdd", CultureInfo.InvariantCulture);
@@ -261,92 +262,6 @@ namespace DVF_API.Services.ServiceImplementation
             var fileName = Path.Combine(yearDirectory, $"{monthAndDate}.bin");
             await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, weatherDataArray);
         }
-
-
-
-
-
-        /// <summary>
-        /// Creates the historic weather data for the given date range and saves it to the database and/or files
-        /// </summary>
-        /// <param name="createFiles"></param>
-        /// <param name="createDB"></param>
-        /// <param name="startDate"></param>
-        /// <param name="endDate"></param>
-        /// <returns>A task</returns>
-        private async Task CreateHistoricWeatherData_org(bool createFiles, bool createDB, DateTime startDate, DateTime endDate)
-        {
-            try
-            {
-                List<Task> tasks = new List<Task>();
-                object lockObject = new object();
-                Dictionary<long, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
-                List<DateTime> allDates = GetAllDates(startDate, endDate);
-                if (locationCoordinatesWithId.Count == 0 || allDates.Count == 0)
-                {
-                    return;
-                }
-                BinaryWeatherStructDto[]? weatherstructDtoArray = null;
-
-                SemaphoreSlim semaphoreSlim = new SemaphoreSlim(_utilityManager.CalculateOptimalDegreeOfParallelism());
-                foreach (var date in allDates)
-                {
-
-                    tasks.Add(Task.Run(async () =>
-                    {
-
-                        try
-                        {
-                            await semaphoreSlim.WaitAsync();
-                            weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, locationCoordinatesWithId);
-                            if (weatherstructDtoArray == null)
-                            {
-                                return;
-                            }
-                            if (createDB)
-                            {
-                                try
-                                {
-                                    await _historicWeatherDataRepository.SaveDataToDatabaseAsync(date, weatherstructDtoArray);
-                                }
-                                catch (Exception ex)
-                                {
-                                    // Ready for logging
-                                }
-                            }
-                            if (createFiles)
-                            {
-                                try
-                                {
-                                    var year = date.Year.ToString();
-                                    var monthAndDate = date.Date.ToString("MMdd", CultureInfo.InvariantCulture);
-                                    var yearDirectory = Path.Combine(_baseDirectory, year);
-                                    Directory.CreateDirectory(yearDirectory);
-                                    var fileName = Path.Combine(yearDirectory, $"{monthAndDate}.bin");
-
-
-                                    await _historicWeatherDataRepository.SaveDataToFileAsync(fileName, weatherstructDtoArray);
-                                }
-                                catch { }
-                            }
-                        }
-                        finally
-                        {
-                            semaphoreSlim?.Release();
-                            Array.Empty<BinaryWeatherStructDto>();
-                        }
-
-                    }));
-
-                }
-                Task.WhenAll(tasks).Wait();
-            }
-            catch (Exception ex)
-            {
-                // Ready for logging
-            }
-        }
-
 
 
 
@@ -367,7 +282,7 @@ namespace DVF_API.Services.ServiceImplementation
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
-                HistoricWeatherDataDto originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                HistoricWeatherDataDto? originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (originalWeatherDataFromAPI != null)
                 {
                     BinaryWeatherStructDto[] weatherDataForSelectedDate = await ProcessAllCoordinates(originalWeatherDataFromAPI, locationCoordinatesWithId);
@@ -479,13 +394,13 @@ namespace DVF_API.Services.ServiceImplementation
                 fixed (float* weatherDataPtr = weatherDataList[i].WeatherData)
                 {
                     weatherDataPtr[0] = timeAsFloat;
-                    weatherDataPtr[1] = AdjustValueRandomly(historicData.Hourly.Temperature_2m[i], random);
-                    weatherDataPtr[2] = AdjustValueRandomly(historicData.Hourly.Relative_Humidity_2m[i], random);
+                    weatherDataPtr[1] = AdjustValueRandomly(historicData.Hourly.Temperature[i], random);
+                    weatherDataPtr[2] = AdjustValueRandomly(historicData.Hourly.RelativeHumidity[i], random);
                     weatherDataPtr[3] = AdjustValueRandomly(historicData.Hourly.Rain[i], random);
-                    weatherDataPtr[4] = AdjustValueRandomly(historicData.Hourly.Wind_Speed_10m[i], random);
-                    weatherDataPtr[5] = AdjustValueRandomly(historicData.Hourly.Wind_Direction_10m[i], random);
-                    weatherDataPtr[6] = AdjustValueRandomly(historicData.Hourly.Wind_Gusts_10m[i], random);
-                    weatherDataPtr[7] = AdjustValueRandomly(historicData.Hourly.Global_Tilted_Irradiance_Instant[i], random);
+                    weatherDataPtr[4] = AdjustValueRandomly(historicData.Hourly.WindSpeed[i], random);
+                    weatherDataPtr[5] = AdjustValueRandomly(historicData.Hourly.WindDirection[i], random);
+                    weatherDataPtr[6] = AdjustValueRandomly(historicData.Hourly.WindGusts[i], random);
+                    weatherDataPtr[7] = AdjustValueRandomly(historicData.Hourly.GlobalTiltedIrRadianceInstant[i], random);
                 }
                 weatherDataList[i].LocationId = LocationId;
             }

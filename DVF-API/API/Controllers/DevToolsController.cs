@@ -106,8 +106,8 @@ namespace DVF_API.API.Controllers
             string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
             try
             {
-                await _developerService.CreateHistoricWeatherDataAsync(request.Password, clientIp, request.CreateFiles, request.CreateDB, request.StartDate, request.EndDate);
-                return Ok(new { message = "Historic weather data created" });
+                _= _developerService.CreateHistoricWeatherDataAsync(request.Password, clientIp, request.CreateFiles, request.CreateDB, request.StartDate, request.EndDate);
+                return Ok(new { message = "Historic is now being created" });
             }
             catch (UnauthorizedAccessException ex)
             {
