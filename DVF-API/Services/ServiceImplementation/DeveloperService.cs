@@ -394,13 +394,13 @@ namespace DVF_API.Services.ServiceImplementation
                 fixed (float* weatherDataPtr = weatherDataList[i].WeatherData)
                 {
                     weatherDataPtr[0] = timeAsFloat;
-                    weatherDataPtr[1] = AdjustValueRandomly(historicData.Hourly.Temperature[i], random);
-                    weatherDataPtr[2] = AdjustValueRandomly(historicData.Hourly.RelativeHumidity[i], random);
+                    weatherDataPtr[1] = AdjustValueRandomly(historicData.Hourly.Temperature_2m[i], random);
+                    weatherDataPtr[2] = AdjustValueRandomly(historicData.Hourly.Relative_Humidity_2m[i], random);
                     weatherDataPtr[3] = AdjustValueRandomly(historicData.Hourly.Rain[i], random);
-                    weatherDataPtr[4] = AdjustValueRandomly(historicData.Hourly.WindSpeed[i], random);
-                    weatherDataPtr[5] = AdjustValueRandomly(historicData.Hourly.WindDirection[i], random);
-                    weatherDataPtr[6] = AdjustValueRandomly(historicData.Hourly.WindGusts[i], random);
-                    weatherDataPtr[7] = AdjustValueRandomly(historicData.Hourly.GlobalTiltedIrRadianceInstant[i], random);
+                    weatherDataPtr[4] = AdjustValueRandomly(historicData.Hourly.Wind_Speed_10m[i], random);
+                    weatherDataPtr[5] = AdjustValueRandomly(historicData.Hourly.Wind_Direction_10m[i], random);
+                    weatherDataPtr[6] = AdjustValueRandomly(historicData.Hourly.Wind_Gusts_10m[i], random);
+                    weatherDataPtr[7] = AdjustValueRandomly(historicData.Hourly.Global_Tilted_Irradiance_Instant[i], random);
                 }
                 weatherDataList[i].LocationId = LocationId;
             }
