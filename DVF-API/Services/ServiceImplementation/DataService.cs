@@ -322,6 +322,7 @@ namespace DVF_API.Services.ServiceImplementation
                         }
                         catch (Exception e)
                         {
+                            throw new Exception($"Error in DataService inner loop: {e}");
                             Debug.WriteLine($"inner loop: {e}");
 
                         }
