@@ -4,6 +4,7 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -264,8 +265,7 @@ namespace DVF_API.Services.ServiceImplementation
                             }
                             catch (Exception e)
                             {
-                                await Console.Out.WriteLineAsync($"exception in locations dictioanry: {e}");
-
+                                metaDataDto.ResponseMessage = $"En fejl opstod under datahentning i locations dictionary: {e.Message}";
                             }
 
 
@@ -302,7 +302,7 @@ namespace DVF_API.Services.ServiceImplementation
                                     historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
                                     historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
                                     historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
-                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse(historicWeatherDataToFileDto.Latitude.Replace('.', ',')), double.Parse(historicWeatherDataToFileDto.Longitude.Replace('.', ',')));
+                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse(historicWeatherDataToFileDto.Latitude, CultureInfo.InvariantCulture), double.Parse(historicWeatherDataToFileDto.Longitude, CultureInfo.InvariantCulture));
                                     historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
                                     historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;
                                 }
@@ -320,12 +320,10 @@ namespace DVF_API.Services.ServiceImplementation
                             _convertionCpuResult.CpuUsagePercentage += tempVonvertionCpuResult.CpuUsagePercentage;
 
                         }
-                        catch (Exception e)
+                        catch (Exception ex)
                         {
-                            Debug.WriteLine($"inner loop: {e}");
-
+                            metaDataDto.ResponseMessage = $"En fejl opstod under datahentning i inner loopet: {ex.Message}";
                         }
-
                     }
 
 
@@ -333,10 +331,9 @@ namespace DVF_API.Services.ServiceImplementation
 
 
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-
-                    Debug.WriteLine($"outer loop: {e}");
+                    metaDataDto.ResponseMessage = $"En fejl opstod under datahentning: {ex.Message}";
                 }
 
 

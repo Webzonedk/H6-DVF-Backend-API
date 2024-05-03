@@ -37,7 +37,7 @@ namespace DVF_API.Data.Repositories
         /// <returns></returns>
         public async Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
-             SaveDataAsBinaryFilesAsync(fileName, weatherStruct);
+             SaveDataAsBinaryFiles(fileName, weatherStruct);
         }
 
 
@@ -62,9 +62,9 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="cities"></param>
         /// <returns>Returns a Task.</returns>
-        public async Task InsertCitiesToDBAsync(List<City> cities)
+        public async Task SaveCitiesToDBAsync(List<City> cities)
         {
-            await InsertCitiesToDBAsync(cities);
+            await InsertCitiesToDB(cities);
         }
 
 
@@ -244,7 +244,7 @@ namespace DVF_API.Data.Repositories
         /// </summary>
         /// <param name="fileName"></param>
         /// <param name="weatherStruct"></param>
-        private  void SaveDataAsBinaryFilesAsync(string fileName, BinaryWeatherStructDto[] weatherStruct)
+        private void SaveDataAsBinaryFiles(string fileName, BinaryWeatherStructDto[] weatherStruct)
         {
             // Calculate the total size needed for all structs
             long totalSize = (long)Marshal.SizeOf<BinaryWeatherStructDto>() * weatherStruct.Length;
@@ -276,23 +276,19 @@ namespace DVF_API.Data.Repositories
             }
             catch (UnauthorizedAccessException ex)
             {
-                // Ready for logging
-                //Debug.WriteLine($"Access denied: {ex.Message}");
+                // Ready for logging Access denied: {ex.Message}
             }
             catch (IOException ex)
             {
-                // Ready for logging
-                //Debug.WriteLine($"IO error: {ex.Message}");
+                // Ready for logging IO error: {ex.Message}
                 if (ex is PathTooLongException)
                 {
-                    // Ready for logging
-                    //Debug.WriteLine("The specified path, file name, or both exceed the system-defined maximum length.");
+                    // Ready for logging The specified path, file name, or both exceed the system-defined maximum length.
                 }
             }
             catch (Exception ex)
             {
-                // Ready for logging
-                //Debug.WriteLine($"A File writer error occurred: {ex.Message}");
+                // Ready for logging A File writer error occurred: {ex.Message}
             }
         }
 
@@ -313,7 +309,7 @@ namespace DVF_API.Data.Repositories
                 {
                     await connection.OpenAsync();
                     SqlCommand command = new SqlCommand("", connection);
-                    command.CommandTimeout = 300;
+                    command.CommandTimeout = 600;
                     // Setup temporary table
                     string tempTableName = "#tempWeatherData";
                     command.CommandText = $@"
@@ -366,6 +362,7 @@ namespace DVF_API.Data.Repositories
                                 false
                             );
                         }
+                        weatherStructArray = null; // Clear the array
                     }
 
                     if (dataTable.Rows.Count > 0)
@@ -373,8 +370,8 @@ namespace DVF_API.Data.Repositories
                         using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
                         {
                             bulkCopy.DestinationTableName = tempTableName;
-                            bulkCopy.BatchSize = 24000;
-                            bulkCopy.BulkCopyTimeout = 300;
+                            bulkCopy.BatchSize = 5000;
+                            bulkCopy.BulkCopyTimeout = 600;
                             await bulkCopy.WriteToServerAsync(dataTable);
                             command.CommandText = $@"
                     MERGE INTO WeatherDatas AS target

@@ -8,7 +8,7 @@ namespace DVF_API.Data.Interfaces
         Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct);
         Task<bool> SaveDataToDatabaseAsync(DateTime date, BinaryWeatherStructDto[] veatherStruct);
         Task SaveLocationsToDBAsync(List<LocationDto> locations);
-        Task InsertCitiesToDBAsync(List<City> cities);
+        Task SaveCitiesToDBAsync(List<City> cities);
         Task SaveCoordinatesToDBAsync(List<string> coordinates);
     }
 }

@@ -2,6 +2,7 @@
 {
     public class MetaDataDto
     {
+        public string? ResponseMessage { get; set; }
         public string? FetchDataTimer { get; set; }
         public string? DataLoadedMB { get; set; }
         public string? RamUsage { get; set; }
