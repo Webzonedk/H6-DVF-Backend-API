@@ -370,7 +370,7 @@ namespace DVF_API.Data.Repositories
                         using (SqlBulkCopy bulkCopy = new SqlBulkCopy(connection))
                         {
                             bulkCopy.DestinationTableName = tempTableName;
-                            bulkCopy.BatchSize = 5000;
+                            bulkCopy.BatchSize = 2500;
                             bulkCopy.BulkCopyTimeout = 600;
                             await bulkCopy.WriteToServerAsync(dataTable);
                             command.CommandText = $@"

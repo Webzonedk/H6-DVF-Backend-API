@@ -170,13 +170,15 @@ namespace DVF_API.Services.ServiceImplementation
 
                     if (createDB)
                     {
+                        while (_databaseWriteQueue.Count >= 50)
+                        {
+                            await Task.Delay(5000);  // Wait for 5 seconds before checking again
+                        }
+
                         EnqueueDataForDatabase(date, weatherstructDtoArray); // Enqueue data for database writing
                     }
 
-                weatherstructDtoArray = null; // Clear the array to free up memory
                 }
-                _locationCoordinatesWithId.Clear(); // Clear the dictionary to free up memory
-                _allDates.Clear(); // Clear the list to free up memory
                 _isDataLoadingComplete = true;
                 await dbWorker; // Ensure the database worker completes before finishing
             }
@@ -196,7 +198,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="date"></param>
         /// <param name="weatherDataArray"></param>
         /// <param name="chunkSize"></param>
-        private void EnqueueDataForDatabase(DateTime date, BinaryWeatherStructDto[] weatherDataArray, int chunkSize = 500000)
+        private void EnqueueDataForDatabase(DateTime date, BinaryWeatherStructDto[] weatherDataArray, int chunkSize = 250000)
         {
             for (int i = 0; i < weatherDataArray.Length; i += chunkSize)
             {
@@ -290,13 +292,13 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 else
                 {
-                    return Array.Empty<BinaryWeatherStructDto>();
+                    return [];
                 }
             }
             catch (Exception ex)
             {
                 // Ready for logging
-                return Array.Empty<BinaryWeatherStructDto>();
+                return [];
             }
         }
 
