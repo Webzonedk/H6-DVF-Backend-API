@@ -18,34 +18,26 @@ namespace DVF_API.Services.ServiceImplementation
     public class DeveloperService : IDeveloperService
     {
         #region fields
-        private readonly HttpClient _httpClient = new HttpClient();
-
-        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
-        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
-
-        private string _latitude = "55.3235";
-        private string _longitude = "11.9639";
-
-        //Used for The database writing
-        private ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])> _databaseWriteQueue = new ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])>();
-        private SemaphoreSlim _dbSemaphore = new SemaphoreSlim(3);
-        private volatile bool _isDataLoadingComplete = false;
-        private Dictionary<long, string> _locationCoordinatesWithId = new Dictionary<long, string>();
-        List<DateTime> _allDates = new List<DateTime>();
-        //---------------------------
 
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
         private readonly IUtilityManager _utilityManager;
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
         private readonly ILocationRepository _locationRepository;
+
+        private readonly HttpClient _httpClient = new HttpClient();
+        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
+        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
+        private string _latitude = "55.3235";
+        private string _longitude = "11.9639";
+        private ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])> _databaseWriteQueue = new ConcurrentQueue<(DateTime, BinaryWeatherStructDto[])>();
+        private volatile bool _isDataLoadingComplete = false;
         #endregion
 
 
 
 
         #region Constructors
-
         public DeveloperService(IHistoricWeatherDataRepository historicWeatherDataRepository,
             IUtilityManager utilityManager,
             ICrudDatabaseRepository databaseRepository,
@@ -147,17 +139,17 @@ namespace DVF_API.Services.ServiceImplementation
         {
             try
             {
-                _locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
-                _allDates = GetAllDates(startDate, endDate);
+                Dictionary<long, string> locationCoordinatesWithId = await _locationRepository.FetchLocationCoordinates(0, 2147483647);
+                List<DateTime> allDates = GetAllDates(startDate, endDate);
                 Task dbWorker = Task.Run(() => ProcessDatabaseQueue()); // Start the database worker
-                if (_locationCoordinatesWithId.Count == 0 || _allDates.Count == 0)
+                if (locationCoordinatesWithId.Count == 0 || allDates.Count == 0)
                 {
                     return;
                 }
 
-                foreach (var date in _allDates)
+                foreach (var date in allDates)
                 {
-                    BinaryWeatherStructDto[]? weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, _locationCoordinatesWithId);
+                    BinaryWeatherStructDto[]? weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, locationCoordinatesWithId);
                     if (weatherstructDtoArray == null || weatherstructDtoArray.Length == 0)
                     {
                         continue; // Skip if no data to process
@@ -216,12 +208,14 @@ namespace DVF_API.Services.ServiceImplementation
         /// <returns>A task</returns>
         private async Task ProcessDatabaseQueue()
         {
+            SemaphoreSlim dbSemaphore = new SemaphoreSlim(3);
+
             while (!_isDataLoadingComplete || !_databaseWriteQueue.IsEmpty) // Continues checking the queue
             {
                 if (_databaseWriteQueue.TryDequeue(out var item))
                 {
                     bool isDoneSavingToDb;
-                    await _dbSemaphore.WaitAsync();
+                    await dbSemaphore.WaitAsync();
                     try
                     {
                         do
@@ -235,7 +229,7 @@ namespace DVF_API.Services.ServiceImplementation
                     }
                     finally
                     {
-                        _dbSemaphore.Release();
+                        dbSemaphore.Release();
                     }
                 }
                 else

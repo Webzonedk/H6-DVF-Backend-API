@@ -1,18 +1,10 @@
 ﻿using DVF_API.Data.Interfaces;
+using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
-using System.Globalization;
+using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
-using System.Data;
-using System;
-using DVF_API.Data.Models;
-using System.Collections.Generic;
-using Microsoft.VisualBasic;
-using DVF_API.Domain.Interfaces;
-using DVF_API.Domain.BusinessLogic;
-using CoordinateSharp;
-using DVF_API.Services.Models;
-using Bogus.DataSets;
+using System.Globalization;
 
 
 namespace DVF_API.Data.Repositories
@@ -21,15 +13,11 @@ namespace DVF_API.Data.Repositories
     {
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
-        private readonly IUtilityManager _utilityManager;
-        private readonly ISolarPositionManager _solarPositionManager;
 
         public CrudDatabaseRepository(IConfiguration configuration, IUtilityManager utilityManager, ISolarPositionManager solarPositionManager)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
-            _utilityManager = utilityManager;
-            _solarPositionManager = solarPositionManager;
         }
 
 
