@@ -1,6 +1,5 @@
 ﻿using DVF_API.Domain.Interfaces;
 using System.Diagnostics;
-using System.Globalization;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -18,9 +17,9 @@ namespace DVF_API.Domain.BusinessLogic
         private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
         private TimeSpan _initialCpuTime;
-       
 
-        
+
+
 
         /// <summary>
         /// A simple password-based authentication method that checks if the provided password matches the predefined secret password.
@@ -145,27 +144,26 @@ namespace DVF_API.Domain.BusinessLogic
         /// </summary>
         /// <param name="bytes"></param>
         /// <returns>a string representing the number of bytes in a human-readable format.</returns>
-        public string ConvertBytesToFormat(long bytes)
+        public string ConvertBytesToFormat(double bytes)
         {
-            int KB = 1024;
-            int MB = KB * 1024;
-            int GB = MB * 1024;
-
+            double KB = 1024;
+            double MB = KB * 1024;
+            double GB = MB * 1024;
             if (bytes < KB)
             {
-                return $"{bytes} bytes";
+                return $"{Math.Round(bytes, 2, MidpointRounding.AwayFromZero)} bytes";
             }
             else if (bytes < MB)
             {
-                return $"{bytes / KB} KB";
+                return $"{Math.Round(bytes / KB, 2, MidpointRounding.AwayFromZero)} KB";
             }
             else if (bytes < GB)
             {
-                return $"{bytes / MB} MB";
+                return $"{Math.Round(bytes / MB, 2, MidpointRounding.AwayFromZero)} MB";
             }
             else
             {
-                return $"{bytes / GB} GB";
+                return $"{Math.Round(bytes / GB, 2, MidpointRounding.AwayFromZero)} GB";
             }
         }
 
@@ -177,7 +175,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// </summary>
         /// <param name="time"></param>
         /// <returns>a string representing the time measurement in a human-readable format.</returns>
-        public string ConvertTimeMeasurementToFormat(float time)
+        public string ConvertTimeMeasurementToFormat(double time)
         {
 
             if (time < 1000)
@@ -223,8 +221,7 @@ namespace DVF_API.Domain.BusinessLogic
 
             try
             {
-                // Sikrer at input er i et gyldigt omfang for dato/tid konvertering
-                if (time < 0 || time > 999999999999)
+                 if (time < 0 || time > 999999999999)
                 {
                     throw new ArgumentOutOfRangeException(nameof(time), "Input is out of range for a valid date-time representation.");
                 }
@@ -235,7 +232,6 @@ namespace DVF_API.Domain.BusinessLogic
             }
             catch
             {
-                // Returner standardværdier ved fejl
                 result[0] = "00000000";
                 result[1] = 0f;
             }
@@ -245,98 +241,63 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-
         /// <summary>
-        /// Begins measuring the time and process of the current process,
-        /// returns the initial CPU time and a stopwatch object.
-        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
-        /// It should rather be tested using integration tests.
+        /// Method to start measuring CPU time
         /// </summary>
-        /// <returns>A tuple containing the initial CPU time and a stopwatch object.</returns>
-        public (TimeSpan InitialCpuTime, Stopwatch Stopwatch) BeginMeasureCPUTime()
+        /// <returns>A tuple containing the initial CPU time and a Stopwatch object.</returns>
+        public (TimeSpan, Stopwatch) BeginMeasureCPUTime()
         {
-            Process currentProcess = Process.GetCurrentProcess();
-            TimeSpan initialCpuTime = currentProcess.TotalProcessorTime;
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            return (initialCpuTime, stopwatch);
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            TimeSpan startTime = Process.GetCurrentProcess().TotalProcessorTime;
+            return (startTime, stopwatch);
         }
 
 
 
 
         /// <summary>
-        /// Stops measuring CPU usage, takes in a TimeSpan and a Stopwatch object,
-        /// returns a tuple containing the CPU usage percentage and elapsed time in milliseconds.
-        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
-        /// It should rather be tested using integration tests.
+        /// Method to stop measuring CPU time and calculate the CPU usage percentage.
         /// </summary>
-        /// <param name="initialCpuTime"></param>
+        /// <param name="startTime"></param>
         /// <param name="stopwatch"></param>
-        /// <returns>A tuple containing the CPU usage percentage and elapsed time in milliseconds.</returns>
-        public (float CpuUsagePercentage, float ElapsedTimeMs) StopMeasureCPUTime(TimeSpan initialCpuTime, Stopwatch stopwatch)
+        /// <returns>A tuple containing the CPU usage percentage and the elapsed time in milliseconds.</returns>
+        public (double CpuUsagePercentage, double ElapsedTimeMs) StopMeasureCPUTime(TimeSpan startTime, Stopwatch stopwatch)
         {
             stopwatch.Stop();
-            TimeSpan elapsedTime = stopwatch.Elapsed;
-            Process currentProcess = Process.GetCurrentProcess();
-            TimeSpan finalCpuTime = currentProcess.TotalProcessorTime;
-
-            // Calculate CPU usage in terms of percentage
-            //double cpuUsedMs = (finalCpuTime - initialCpuTime).TotalMilliseconds;
-            //double elapsedTimeMs = elapsedTime.TotalMilliseconds;
-            //double cpuUsagePercentage = (cpuUsedMs / elapsedTimeMs) * 100;
-            double cpuUsedMs = (finalCpuTime - _initialCpuTime).TotalMilliseconds;
-            double elapsedTimeMs = elapsedTime.TotalMilliseconds;
-            double cpuUsagePercentage = (cpuUsedMs / (elapsedTimeMs * Environment.ProcessorCount)) * 100;
-
-            return (CpuUsagePercentage: (float)cpuUsagePercentage, ElapsedTimeMs: (float)elapsedTimeMs);
+            TimeSpan endTime = Process.GetCurrentProcess().TotalProcessorTime;
+            TimeSpan cpuUsed = endTime - startTime;
+            double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / stopwatch.ElapsedMilliseconds) * 100;
+            return (cpuUsagePercentage, stopwatch.ElapsedMilliseconds);
         }
 
 
 
 
         /// <summary>
-        /// begins measuring ram usage, returns a 64 bit int representing the ram usage before the code block
-        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
-        /// It should rather be tested using integration tests.
+        /// Method to start measuring memory
         /// </summary>
-        /// <returns>a 64-bit integer representing the RAM usage before executing the code block.</returns>
-        public long BeginMeasureMemory()
+        /// <returns>A double value representing the initial memory usage in bytes.</returns>
+        public double BeginMeasureMemory()
         {
-            //GC.Collect();
-            //GC.WaitForPendingFinalizers();
-
-            Process process = Process.GetCurrentProcess();
-            long ramUsageBeforeBytes = process.PrivateMemorySize64;
-
-            return ramUsageBeforeBytes;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            return Process.GetCurrentProcess().PrivateMemorySize64;
         }
 
 
 
 
         /// <summary>
-        /// stops measuring ram usage, takes in a 64 bit int representing the ram usage before the code block, returns the difference in ram usage
-        /// This method has no Unit Test because it uses the Process class, which is difficult to mock.
-        /// It should rather be tested using integration tests.
+        /// Method to stop measuring memory and calculate the memory usage.
         /// </summary>
-        /// <param name="ramUsageBeforeBytes"></param>
-        /// <param name="currentProcess"></param>
-        /// <returns>a 32-bit integer representing the difference in RAM usage after executing the code block.</returns>
-        public long StopMeasureMemory(long ramUsageBeforeBytes)
+        /// <param name="startMemory"></param>
+        /// <returns>A double value representing the memory usage in bytes.</returns>
+        public double StopMeasureMemory(double startMemory)
         {
-            long calcDifference = 0;
-            long ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
-             calcDifference = ramUsageAfterBytes - ramUsageBeforeBytes;
-            
-            //try one more time
-            if(calcDifference <= 0)
-            {
-                ramUsageAfterBytes = Process.GetCurrentProcess().PrivateMemorySize64;
-                calcDifference = ramUsageAfterBytes - ramUsageBeforeBytes;
-            }
-            return calcDifference;
+            double endMemory = Process.GetCurrentProcess().PrivateMemorySize64;
+            return endMemory - startMemory;
         }
-
     }
 }

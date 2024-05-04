@@ -1,27 +1,20 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Domain.BusinessLogic;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
-using FluentAssertions;
-using Microsoft.AspNetCore.Http.HttpResults;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text;
 
 
 
 namespace DVF_API.Services.ServiceImplementation
 {
+    /// <summary>
+    /// This class is responsible for handling the data retrieval and processing of weather data.
+    /// It retrieves weather data from either the database or files, and adds sun angles to the data.
+    /// </summary>
     public class DataService : IDataService
     {
-
-        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
-
 
         private readonly ICrudDatabaseRepository _crudDatabaseRepository;
         private readonly ILocationRepository _locationRepository;
@@ -29,17 +22,9 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly ISolarPositionManager _solarPositionManager;
         private readonly IUtilityManager _utilityManager;
 
+        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
 
-        private (float CpuUsagePercentage, float ElapsedTimeMs) cpuResult;
-        private long _byteMemory;
-        private TimeSpan _convertionCpuTimeBefore;
-        private Stopwatch _convertionStopwatch = new Stopwatch();
-        private TimeSpan _cpuTimeBefore;
-        private Stopwatch _stopwatch = new Stopwatch();
-        private long _convertionCurrentBytes;
-        private (float CpuUsagePercentage, float ElapsedTimeMs) _convertionCpuResult;
-        private long _convertionByteMemory;
-        private long _currentBytes;
+
 
 
         public DataService(
@@ -56,6 +41,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+
         /// <summary>
         /// method returns a list of addresses matching a partial inputted address
         /// </summary>
@@ -65,6 +51,7 @@ namespace DVF_API.Services.ServiceImplementation
         {
             return await _locationRepository.FetchMatchingAddresses(partialAddress);
         }
+
 
 
 
@@ -91,7 +78,6 @@ namespace DVF_API.Services.ServiceImplementation
         }
 
 
-
         /// <summary>
         /// Get weather data from file or database, adding sun angles to the data. making it ready for the front end.
         /// </summary>
@@ -102,277 +88,253 @@ namespace DVF_API.Services.ServiceImplementation
             MetaDataDto metaDataDto = new MetaDataDto();
             if (searchDto.ToggleDB)
             {
-                // start measuring CPU usage and Memory before executing the code
-                (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPUTime();
-                long currentBytes = _utilityManager.BeginMeasureMemory();
-
-
-
-                //get data
-                MetaDataDto modelResult = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
-
-
-                // return recorded CPU usage and memory usage
-                cpuResult = _utilityManager.StopMeasureCPUTime(cpuTimeBefore, stopwatch);
-                _byteMemory = _utilityManager.StopMeasureMemory(currentBytes);
-
-
-
-                //map data to model if model is retrieved successfully
-                if (modelResult != null)
-                {
-
-                    (TimeSpan convertionCpuTimeBefore, Stopwatch convertionStopwatch) = _utilityManager.BeginMeasureCPUTime();
-                    long convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
-
-
-                    List<Task> tasks = new List<Task>();
-                    for (int i = 0; i < modelResult.WeatherData.Count; i++)
-                    {
-                        int index = i;
-                        tasks.Add(Task.Run(() =>
-                        {
-                            var result = _solarPositionManager.CalculateSunAngles(modelResult.WeatherData[index].DateAndTime, double.Parse(modelResult.WeatherData[index].Latitude), double.Parse(modelResult.WeatherData[index].Longitude));
-                            modelResult.WeatherData[index].SunAzimuthAngle = (float)result.SunAzimuth;
-                            modelResult.WeatherData[index].SunElevationAngle = (float)result.SunAltitude;
-                        }));
-                    }
-
-                    await Task.WhenAll(tasks);
-
-
-                    var ConvertioncpuResult = _utilityManager.StopMeasureCPUTime(convertionCpuTimeBefore, convertionStopwatch);
-                    var ConvertionbyteMemory = _utilityManager.StopMeasureMemory(convertionCurrentBytes);
-                    string ConvertionmeasuredRamUsage = _utilityManager.ConvertBytesToFormat(ConvertionbyteMemory);
-
-                    //calculate amount of data
-                    int metaDataModelInBytes = _utilityManager.GetModelSize(modelResult);
-                    int totalBytes = metaDataModelInBytes;
-                    string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
-                    string measuredRamUsage = _utilityManager.ConvertBytesToFormat(_byteMemory);
-
-                    //map measurements to model
-                    modelResult.DataLoadedMB = dataCollectedInMB;
-                    modelResult.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(cpuResult.ElapsedTimeMs);
-                    modelResult.CpuUsage = cpuResult.CpuUsagePercentage;
-                    modelResult.RamUsage = measuredRamUsage;
-                    modelResult.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(ConvertioncpuResult.ElapsedTimeMs);
-                    modelResult.ConvertionCpuUsage = ConvertioncpuResult.CpuUsagePercentage;
-                    modelResult.ConvertionRamUsage = ConvertionmeasuredRamUsage;
-
-                    return modelResult;
-                }
-
+                return await RetrieveDataFromDatabase(searchDto);
             }
-            if (!searchDto.ToggleDB)
+
+            List<DateOnly> dateList = Enumerable.Range(0, 1 + searchDto.ToDate.DayNumber - searchDto.FromDate.DayNumber)
+                          .Select(offset => searchDto.FromDate.AddDays(offset))
+                          .ToList();
+
+            List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
+            List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
+
+            double dataRetrievalCpuUsageTotal = 0;
+            double dataRetrievalMemoryTotal = 0;
+            double dataProcessingCpuUsageTotal = 0;
+            double dataProcessingMemoryTotal = 0;
+
+            try
             {
-
-                List<DateOnly> dateList = new List<DateOnly>();
-                int totalCoordinates = searchDto.Coordinates.Count;
-
-                for (DateOnly date = searchDto.FromDate; date <= searchDto.ToDate; date = date.AddDays(1))
+                for (int i = 0; i < dateList.Count; i++)
                 {
-                    dateList.Add(date);
+
+                    (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPUTime();
+                    double startMemory = _utilityManager.BeginMeasureMemory();
+
+                    double yearDate = _utilityManager.ConvertDateTimeToDouble(dateList[i].ToString());
+                    var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString();
+                    var year = fullDate.Substring(0, 4);
+                    var monthDay = fullDate.Substring(4, 4);
+                    var directory = Path.Combine(_baseDirectory, year);
+                    var fileName = Path.Combine(directory, $"{monthDay}.bin");
+
+                    BinaryWeatherStructDto[] binaryWeatherStructWithWeatherData = await LoadDataFromFiles(listOfBinaryDataFromFileDto, dateList[i], fileName);
+
+                    var retrievalCpuResult = _utilityManager.StopMeasureCPUTime(cpuTimeBefore, stopwatch);
+                    double retrievalMemoryUsed = _utilityManager.StopMeasureMemory(startMemory);
+
+                    dataRetrievalCpuUsageTotal += retrievalCpuResult.CpuUsagePercentage;
+                    dataRetrievalMemoryTotal += retrievalMemoryUsed;
+
+                    (cpuTimeBefore, stopwatch) = _utilityManager.BeginMeasureCPUTime();
+                    startMemory = _utilityManager.BeginMeasureMemory();
+
+                    Dictionary<long, LocationDto> locations = await GetLocations(metaDataDto, searchDto);
+                    ProcessWeatherData(weatherDataDtoList, binaryWeatherStructWithWeatherData, locations, fileName);
+
+                    var processingCpuResult = _utilityManager.StopMeasureCPUTime(cpuTimeBefore, stopwatch);
+                    double processingMemoryUsed = _utilityManager.StopMeasureMemory(startMemory);
+
+                    dataProcessingCpuUsageTotal += processingCpuResult.CpuUsagePercentage;
+                    dataProcessingMemoryTotal += processingMemoryUsed;
                 }
-
-
-
-
-
-                List<WeatherDataDto> weatherDataDtoList = new List<WeatherDataDto>();
-                //get locations before getting weatherdata
-                List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto = await _locationRepository.FetchAddressByCoordinates(searchDto);
-                Dictionary<string, List<BinarySearchInFilesDto>> binarySearchInFilesDtoDictionary = new Dictionary<string, List<BinarySearchInFilesDto>>();
-
-
-                try
-                {
-                   
-
-                    for (int i = 0; i < dateList.Count; i++)
-                    {
-                        // start measuring CPU usage and Memory before executing the code
-                         (_cpuTimeBefore, _stopwatch) = _utilityManager.BeginMeasureCPUTime();
-                      //  _utilityManager.BeginMeasureCPU(_stopwatch);
-                        _currentBytes = _utilityManager.BeginMeasureMemory();
-
-                        double yearDate = _utilityManager.ConvertDateTimeToDouble(dateList[i].ToString());
-                        var fullDate = _utilityManager.MixedYearDateTimeSplitter(yearDate)[0].ToString(); //contains the date format YYYYMMDD
-                        var year = fullDate.Substring(0, 4);
-                        var monthDay = fullDate.Substring(4, 4);
-                        var directory = Path.Combine(_baseDirectory, year);
-                        var fileName = Path.Combine(directory, $"{monthDay}.bin");
-                        BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
-                        try
-                        {
-                            var firstLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).First();
-                            var lastLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).Last();
-
-
-
-                            if (listOfBinaryDataFromFileDto.Count == 1)
-                            {
-                                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[0].LocationId - 1) * 960;
-                                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[0].LocationId * 960 - 1;
-                                binarySearchInFilesDto.FilePath = fileName;
-
-                            }
-                            else
-                            {
-                                binarySearchInFilesDto.FromByte = (firstLocationId - 1) * 960;
-                                binarySearchInFilesDto.ToByte = lastLocationId * 960 - 1;
-                                binarySearchInFilesDto.FilePath = fileName;
-                            }
-
-                            BinaryWeatherStructDto[] returnedStructArrayWithWeatherData = await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDto);
-
-
-                            // return recorded CPU usage and memory usage
-                            var tempCpuResult = _utilityManager.StopMeasureCPUTime(_cpuTimeBefore, _stopwatch);
-                         //   var tempCpuResult = _utilityManager.StopMeasureCPU(_stopwatch);
-                            cpuResult.ElapsedTimeMs += tempCpuResult.ElapsedTimeMs;
-                            cpuResult.CpuUsagePercentage += tempCpuResult.CpuUsagePercentage;
-                            _byteMemory += _utilityManager.StopMeasureMemory(_currentBytes);
-                            _stopwatch.Restart();
-                         
-
-                            Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
-                            //get all cooordinates
-                            try
-                            {
-                                if (totalCoordinates != 1)
-                                {
-                                    locations = await _locationRepository.GetAllLocationCoordinates();
-                                }
-                                else
-                                {
-                                    var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
-                                    int locationId = location[0].LocationId;
-                                    var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
-                                    var address = location[0].Address.Split(' ');
-                                    var coordinates = coordinateDictionary[locationId].Split("-");
-                                    LocationDto locationDto = new LocationDto()
-                                    {
-                                        Latitude = coordinates[0],
-                                        Longitude = coordinates[1],
-                                        StreetName = address[0],
-                                        StreetNumber = address[1],
-                                        PostalCode = address[2],
-                                        CityName = address[3]
-                                    };
-                                    locations.Add(locationId, locationDto);
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                metaDataDto.ResponseMessage = $"En fejl opstod under datahentning i locations dictionary: {e.Message}";
-                            }
-
-
-
-                            long Id = 0;
-                            float time = 0;
-                            string tempDate = "";
-                            string? tempYear = "";
-
-
-                            (_convertionCpuTimeBefore, _convertionStopwatch) = _utilityManager.BeginMeasureCPUTime();
-                            _convertionCurrentBytes = _utilityManager.BeginMeasureMemory();
-
-                            foreach (var weatherStruct in returnedStructArrayWithWeatherData)
-                            {
-                                WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
-
-                                unsafe
-                                {
-                                    BinaryWeatherStructDto datablock = weatherStruct;
-                                    Id = datablock.LocationId;
-                                    time = datablock.WeatherData[0];
-                                    tempDate = Path.GetFileNameWithoutExtension(fileName);
-                                    tempYear = Path.GetFileName(Path.GetDirectoryName(fileName));
-
-                                    historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(tempYear, tempDate, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
-                                    historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
-                                    historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
-                                    historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
-                                    historicWeatherDataToFileDto.TemperatureC = datablock.WeatherData[0];
-                                    historicWeatherDataToFileDto.RelativeHumidity = datablock.WeatherData[1];
-                                    historicWeatherDataToFileDto.Rain = datablock.WeatherData[2];
-                                    historicWeatherDataToFileDto.WindSpeed = datablock.WeatherData[3];
-                                    historicWeatherDataToFileDto.WindDirection = datablock.WeatherData[4];
-                                    historicWeatherDataToFileDto.WindGust = datablock.WeatherData[5];
-                                    historicWeatherDataToFileDto.GlobalTiltedIrRadiance = datablock.WeatherData[6];
-                                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse(historicWeatherDataToFileDto.Latitude, CultureInfo.InvariantCulture), double.Parse(historicWeatherDataToFileDto.Longitude, CultureInfo.InvariantCulture));
-                                    historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
-                                    historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;
-                                }
-
-
-
-                                weatherDataDtoList.Add(historicWeatherDataToFileDto);
-                            }
-
-                            // return recorded CPU usage and memory usage
-                            _convertionByteMemory += _utilityManager.StopMeasureMemory(_convertionCurrentBytes);
-                            var tempVonvertionCpuResult = _utilityManager.StopMeasureCPUTime(_convertionCpuTimeBefore, _convertionStopwatch);
-                          //  var tempVonvertionCpuResult = _utilityManager.StopMeasureCPU(_convertionStopwatch);
-                            _convertionCpuResult.ElapsedTimeMs += tempVonvertionCpuResult.ElapsedTimeMs;
-                            _convertionCpuResult.CpuUsagePercentage += tempVonvertionCpuResult.CpuUsagePercentage;
-
-                        }
-                        catch (Exception ex)
-                        {
-                            metaDataDto.ResponseMessage = $"En fejl opstod under datahentning i inner loopet: {ex.Message}";
-                        }
-                    }
-
-
-                   
-
-
-                }
-                catch (Exception ex)
-                {
-                    metaDataDto.ResponseMessage = $"En fejl opstod under datahentning: {ex.Message}";
-                }
-
-
-
-
-                metaDataDto.WeatherData = new List<WeatherDataDto>();
-                metaDataDto.WeatherData.AddRange(weatherDataDtoList);
-                weatherDataDtoList.Clear();
-
-                //calculate amount of data retrieved
-                int metaDataModelInBytes = _utilityManager.GetModelSize(metaDataDto);
-                int totalBytes = metaDataModelInBytes;
-                string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
-              
-                //measured Ram usage
-                string measuredCollectedDataRamUsage = _utilityManager.ConvertBytesToFormat(_byteMemory);
-                string convertionMeasuredRamUsage = _utilityManager.ConvertBytesToFormat(_convertionByteMemory);
-
-                //measured time usage
-                float dataCollectedTimer = cpuResult.ElapsedTimeMs;
-                float convertedDataTimer = _convertionCpuResult.ElapsedTimeMs;
-
-                //measured Cpu usage
-                float collectedDataCpuUsage = cpuResult.CpuUsagePercentage;
-                float convertedDataCpuUsage = _convertionCpuResult.CpuUsagePercentage;
-
-                //map measurements to model
-                metaDataDto.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(dataCollectedTimer);
-                metaDataDto.DataLoadedMB = dataCollectedInMB;
-                metaDataDto.RamUsage = measuredCollectedDataRamUsage;
-                metaDataDto.CpuUsage = collectedDataCpuUsage;
-                metaDataDto.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(convertedDataTimer);
-                metaDataDto.ConvertionRamUsage = convertionMeasuredRamUsage;
-                metaDataDto.ConvertionCpuUsage = convertedDataCpuUsage;
-
-                return metaDataDto;
+            }
+            catch (Exception ex)
+            {
+                metaDataDto.ResponseMessage = $"En fejl opstod under datahentning: {ex.Message}";
             }
 
-            return null;
+            metaDataDto.WeatherData = weatherDataDtoList;
+
+            int metaDataModelInBytes = _utilityManager.GetModelSize(metaDataDto);
+            metaDataDto.DataLoadedMB = _utilityManager.ConvertBytesToFormat(metaDataModelInBytes);
+            metaDataDto.RamUsage = _utilityManager.ConvertBytesToFormat(dataRetrievalMemoryTotal);
+            metaDataDto.CpuUsage = (float)Math.Round(dataRetrievalCpuUsageTotal, 2, MidpointRounding.AwayFromZero);
+
+            metaDataDto.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(dataRetrievalCpuUsageTotal);
+            metaDataDto.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(dataProcessingCpuUsageTotal);
+            metaDataDto.ConvertionRamUsage = _utilityManager.ConvertBytesToFormat(dataProcessingMemoryTotal);
+            metaDataDto.ConvertionCpuUsage = (float)Math.Round(dataProcessingCpuUsageTotal, 2, MidpointRounding.AwayFromZero);
+
+            return metaDataDto;
+        }
+
+
+
+
+        /// <summary>
+        /// Loads data from files and returns a BinaryWeatherStructDto array.
+        /// </summary>
+        /// <param name="listOfBinaryDataFromFileDto"></param>
+        /// <param name="date"></param>
+        /// <param name="fileName"></param>
+        /// <returns>A BinaryWeatherStructDto array containing weather data with shared memory.</returns>
+        private async Task<BinaryWeatherStructDto[]> LoadDataFromFiles(List<BinaryDataFromFileDto> listOfBinaryDataFromFileDto, DateOnly date, string fileName)
+        {
+            BinarySearchInFilesDto binarySearchInFilesDto = new BinarySearchInFilesDto();
+            var firstLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).First();
+            var lastLocationId = listOfBinaryDataFromFileDto.Select(x => (x.LocationId)).Last();
+
+            if (listOfBinaryDataFromFileDto.Count == 1)
+            {
+                binarySearchInFilesDto.FromByte = (listOfBinaryDataFromFileDto[0].LocationId - 1) * 960;
+                binarySearchInFilesDto.ToByte = listOfBinaryDataFromFileDto[0].LocationId * 960 - 1;
+                binarySearchInFilesDto.FilePath = fileName;
+            }
+            else
+            {
+                binarySearchInFilesDto.FromByte = (firstLocationId - 1) * 960;
+                binarySearchInFilesDto.ToByte = lastLocationId * 960 - 1;
+                binarySearchInFilesDto.FilePath = fileName;
+            }
+            return await _crudFileRepository.FetchWeatherDataAsync(binarySearchInFilesDto);
+        }
+
+
+
+
+        /// <summary>
+        /// Processes weather data and adds it to a list of WeatherDataDto objects. This method is called for each file. and adds sun angles to the data.
+        /// It also adds the data to a list of WeatherDataDto objects. and contains unsafe code to handle the shared memory.
+        /// </summary>
+        /// <param name="weatherDataDtoList"></param>
+        /// <param name="returnedStructArrayWithWeatherData"></param>
+        /// <param name="locations"></param>
+        /// <param name="fileName"></param>
+        private void ProcessWeatherData(List<WeatherDataDto> weatherDataDtoList, BinaryWeatherStructDto[] returnedStructArrayWithWeatherData, Dictionary<long, LocationDto> locations, string fileName)
+        {
+            long Id = 0;
+            float time = 0;
+            string tempDate = "";
+            string? tempYear = "";
+
+            foreach (var weatherStruct in returnedStructArrayWithWeatherData)
+            {
+                WeatherDataDto historicWeatherDataToFileDto = new WeatherDataDto();
+
+                unsafe
+                {
+                    Id = weatherStruct.LocationId;
+                    time = weatherStruct.WeatherData[0];
+                    tempDate = Path.GetFileNameWithoutExtension(fileName);
+                    tempYear = Path.GetFileName(Path.GetDirectoryName(fileName));
+
+                    historicWeatherDataToFileDto.DateAndTime = DateTime.ParseExact(string.Concat(tempYear, tempDate, time.ToString("0000")), "yyyyMMddHHmm", CultureInfo.InvariantCulture);
+                    historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
+                    historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
+                    historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
+                    historicWeatherDataToFileDto.TemperatureC = weatherStruct.WeatherData[0];
+                    historicWeatherDataToFileDto.RelativeHumidity = weatherStruct.WeatherData[1];
+                    historicWeatherDataToFileDto.Rain = weatherStruct.WeatherData[2];
+                    historicWeatherDataToFileDto.WindSpeed = weatherStruct.WeatherData[3];
+                    historicWeatherDataToFileDto.WindDirection = weatherStruct.WeatherData[4];
+                    historicWeatherDataToFileDto.WindGust = weatherStruct.WeatherData[5];
+                    historicWeatherDataToFileDto.GlobalTiltedIrRadiance = weatherStruct.WeatherData[6];
+                    var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse(historicWeatherDataToFileDto.Latitude, CultureInfo.InvariantCulture), double.Parse(historicWeatherDataToFileDto.Longitude, CultureInfo.InvariantCulture));
+                    historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
+                    historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;
+                }
+
+                weatherDataDtoList.Add(historicWeatherDataToFileDto);
+            }
+        }
+
+
+
+
+        /// <summary>
+        /// Retrieves locations from the database based on the searchDto. If the searchDto contains coordinates, it will return the location based on the coordinates.
+        /// </summary>
+        /// <param name="metaDataDto"></param>
+        /// <param name="searchDto"></param>
+        /// <returns>A dictionary containing location id´s and locationDto´s.</returns>
+        private async Task<Dictionary<long, LocationDto>> GetLocations(MetaDataDto metaDataDto, SearchDto searchDto)
+        {
+            Dictionary<long, LocationDto> locations = new Dictionary<long, LocationDto>();
+            try
+            {
+                if (searchDto.Coordinates.Count != 1)
+                {
+                    locations = await _locationRepository.GetAllLocationCoordinates();
+                }
+                else
+                {
+                    var location = await _locationRepository.FetchAddressByCoordinates(searchDto);
+                    int locationId = location[0].LocationId;
+                    var coordinateDictionary = await _locationRepository.FetchLocationCoordinates(locationId, locationId);
+                    var address = location[0].Address.Split(' ');
+                    var coordinates = coordinateDictionary[locationId].Split("-");
+                    LocationDto locationDto = new LocationDto()
+                    {
+                        Latitude = coordinates[0],
+                        Longitude = coordinates[1],
+                        StreetName = address[0],
+                        StreetNumber = address[1],
+                        PostalCode = address[2],
+                        CityName = address[3]
+                    };
+                    locations.Add(locationId, locationDto);
+                }
+            }
+            catch (Exception e)
+            {
+                metaDataDto.ResponseMessage = $"En fejl opstod under datahentning i locations dictionary: {e.Message}";
+            }
+            return locations;
+        }
+
+
+
+
+        /// <summary>
+        /// Retrieves weather data from the database and adds sun angles to the data. making it ready for the front end.
+        /// </summary>
+        /// <param name="searchDto"></param>
+        /// <returns>A MetaDataDto object containing the weather data and sun angles.</returns>
+        private async Task<MetaDataDto> RetrieveDataFromDatabase(SearchDto searchDto)
+        {
+            (TimeSpan cpuTimeBeforeRetrievingFromDatabase, Stopwatch fileStopwatch) = _utilityManager.BeginMeasureCPUTime();
+            double StartMemoryDatabase = _utilityManager.BeginMeasureMemory();
+
+            MetaDataDto metaDataDto = await _crudDatabaseRepository.FetchWeatherDataAsync(searchDto);
+
+            var (cpuUsageDatabase, elapsedTimeFile) = _utilityManager.StopMeasureCPUTime(cpuTimeBeforeRetrievingFromDatabase, fileStopwatch);
+            double memoryUsedDatabase = _utilityManager.StopMeasureMemory(StartMemoryDatabase);
+
+            if (metaDataDto != null)
+            {
+                (TimeSpan cpuTimeBeforeDataConversion, Stopwatch DataConversionStopwatch) = _utilityManager.BeginMeasureCPUTime();
+                double DataConvertionStartMemory = _utilityManager.BeginMeasureMemory();
+
+                List<Task> tasks = new List<Task>();
+                for (int i = 0; i < metaDataDto.WeatherData.Count; i++)
+                {
+                    int index = i;
+                    tasks.Add(Task.Run(() =>
+                    {
+                        var result = _solarPositionManager.CalculateSunAngles(metaDataDto.WeatherData[index].DateAndTime, double.Parse(metaDataDto.WeatherData[index].Latitude, CultureInfo.InvariantCulture), double.Parse(metaDataDto.WeatherData[index].Longitude, CultureInfo.InvariantCulture));
+                        metaDataDto.WeatherData[index].SunAzimuthAngle = (float)result.SunAzimuth;
+                        metaDataDto.WeatherData[index].SunElevationAngle = (float)result.SunAltitude;
+                    }));
+                }
+                await Task.WhenAll(tasks);
+
+                var (cpuUsageDataConversion, elapsedTimeDataConversion) = _utilityManager.StopMeasureCPUTime(cpuTimeBeforeDataConversion, DataConversionStopwatch);
+                double memoryUsedDataConversion = _utilityManager.StopMeasureMemory(DataConvertionStartMemory);
+
+                double totalBytes = _utilityManager.GetModelSize(metaDataDto);
+                string dataCollectedInMB = _utilityManager.ConvertBytesToFormat(totalBytes);
+
+                metaDataDto.DataLoadedMB = dataCollectedInMB;
+                metaDataDto.FetchDataTimer = _utilityManager.ConvertTimeMeasurementToFormat(elapsedTimeFile);
+                metaDataDto.RamUsage = _utilityManager.ConvertBytesToFormat(memoryUsedDatabase);
+                metaDataDto.CpuUsage = (float)Math.Round(cpuUsageDatabase, 2, MidpointRounding.AwayFromZero);
+
+                metaDataDto.ConvertionTimer = _utilityManager.ConvertTimeMeasurementToFormat(elapsedTimeDataConversion);
+                metaDataDto.ConvertionRamUsage = _utilityManager.ConvertBytesToFormat(memoryUsedDataConversion);
+                metaDataDto.ConvertionCpuUsage = (float)Math.Round(cpuUsageDataConversion, 2, MidpointRounding.AwayFromZero);
+            }
+            return metaDataDto!;
         }
     }
 }

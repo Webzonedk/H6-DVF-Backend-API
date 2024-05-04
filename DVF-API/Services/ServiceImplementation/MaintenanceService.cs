@@ -3,19 +3,32 @@ using DVF_API.Services.Interfaces;
 
 namespace DVF_API.Services.ServiceImplementation
 {
+    /// <summary>
+    /// This class is responsible for the maintenance of the data in the database and the files in the file system
+    /// It is used to delete and restore data
+    /// </summary>
     public class MaintenanceService : IMaintenanceService
     {
 
+        #region Fields
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
         private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
 
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
+        #endregion
+
+
+
+
+        #region Constructor
         public MaintenanceService(ICrudDatabaseRepository databaseRepository, ICrudFileRepository fileRepository)
         {
             _databaseRepository = databaseRepository;
             _fileRepository = fileRepository;
         }
+        #endregion
+
 
 
 
