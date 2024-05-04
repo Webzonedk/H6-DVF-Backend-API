@@ -340,7 +340,7 @@ namespace DVF_API.Data.Repositories
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Cities.PostalCode, Cities.CityName" +
+                string query = "SELECT Locations.StreetName, Locations.StreetNumber, Locations.LocationId, Cities.PostalCode, Cities.CityName" +
                     " FROM Locations JOIN Cities ON Locations.CityId = Cities.CityId" +
                     " WHERE(Locations.StreetName + ' ' + Locations.StreetNumber) LIKE @searchCriteria +'%'" +
                     " OR Cities.PostalCode LIKE @searchCriteria + '%'" +
@@ -358,7 +358,7 @@ namespace DVF_API.Data.Repositories
                     while (await result.ReadAsync())
                     {
                         // Combine columns into a single string with the specified format for each row
-                        string combinedAddress = $"{result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
+                        string combinedAddress = $"{result["LocationId"]}: {result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
 
                         // Add the combined string to the list
                         addresses.Add(combinedAddress);
