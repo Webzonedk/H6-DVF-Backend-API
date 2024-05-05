@@ -5,14 +5,11 @@ using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.Services.ServiceImplementation;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-
 
 builder.Configuration.GetConnectionString("WeatherDataDb");
 
@@ -22,14 +19,12 @@ builder.Services.AddScoped<ICrudFileRepository, CrudFileRepository>();
 builder.Services.AddScoped<IHistoricWeatherDataRepository, HistoricWeatherDataRepository>();
 builder.Services.AddScoped<ILocationRepository, CrudDatabaseRepository>();
 
-builder.Services.AddScoped<IAddWeatherDataService, AddWeatherDataService>();
 builder.Services.AddScoped<IDataService, DataService>();
 builder.Services.AddScoped<IDeveloperService, DeveloperService>();
 builder.Services.AddScoped<IMaintenanceService, MaintenanceService>();
                  
 builder.Services.AddScoped<ISolarPositionManager, SolarPositionManager>();
 builder.Services.AddScoped<IUtilityManager, UtilityManager>();
-
 
 var _allowAllOriginsForDevelopment = "_allowAllOriginsForDevelopment";
 builder.Services.AddCors(options =>

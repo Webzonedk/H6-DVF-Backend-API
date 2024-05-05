@@ -1,10 +1,8 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Data.Models;
 using DVF_API.Domain.Interfaces;
 using DVF_API.Services.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
@@ -17,8 +15,8 @@ namespace DVF_API.Services.ServiceImplementation
     /// </summary>
     public class DeveloperService : IDeveloperService
     {
-        #region fields
 
+        #region fields
         private readonly IHistoricWeatherDataRepository _historicWeatherDataRepository;
         private readonly IUtilityManager _utilityManager;
         private readonly ICrudDatabaseRepository _databaseRepository;
@@ -152,19 +150,19 @@ namespace DVF_API.Services.ServiceImplementation
                     BinaryWeatherStructDto[]? weatherstructDtoArray = await RetreiveProcessWeatherData(_latitude, _longitude, date, locationCoordinatesWithId);
                     if (weatherstructDtoArray == null || weatherstructDtoArray.Length == 0)
                     {
-                        continue; // Skip if no data to process
+                        continue;
                     }
 
                     if (createFiles)
                     {
-                        await SaveDataToFilesAsync(date, weatherstructDtoArray); // File saving remains asynchronous but is awaited
+                        await SaveDataToFilesAsync(date, weatherstructDtoArray);
                     }
 
                     if (createDB)
                     {
-                        while (_databaseWriteQueue.Count >= 50)
+                        while (_databaseWriteQueue.Count >= 50)  // ensure that the queue does not grow too large to save memory
                         {
-                            await Task.Delay(5000);  // Wait for 5 seconds before checking again
+                            await Task.Delay(5000);
                         }
 
                         EnqueueDataForDatabase(date, weatherstructDtoArray); // Enqueue data for database writing
@@ -172,11 +170,11 @@ namespace DVF_API.Services.ServiceImplementation
 
                 }
                 _isDataLoadingComplete = true;
-                await dbWorker; // Ensure the database worker completes before finishing
+                await dbWorker;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("Error in CreateHistoricWeatherData: " + ex.Message);
+                // Ready for logging
                 throw;
             }
         }
@@ -278,7 +276,7 @@ namespace DVF_API.Services.ServiceImplementation
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var jsonData = await response.Content.ReadAsStringAsync();
-                HistoricWeatherDataDto? originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherDataDto>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                HistoricWeatherData? originalWeatherDataFromAPI = JsonSerializer.Deserialize<HistoricWeatherData>(jsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (originalWeatherDataFromAPI != null)
                 {
                     BinaryWeatherStructDto[] weatherDataForSelectedDate = await ProcessAllCoordinates(originalWeatherDataFromAPI, locationCoordinatesWithId);
@@ -313,7 +311,6 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 dateList.Add(date);
             }
-
             return dateList;
         }
 
@@ -326,7 +323,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="originalWeatherDataFromAPI"></param>
         /// <param name="locationCoordinatesWithId"></param>
         /// <returns></returns>
-        private async Task<BinaryWeatherStructDto[]> ProcessAllCoordinates(HistoricWeatherDataDto originalWeatherDataFromAPI, Dictionary<long, string> locationCoordinatesWithId)
+        private async Task<BinaryWeatherStructDto[]> ProcessAllCoordinates(HistoricWeatherData originalWeatherDataFromAPI, Dictionary<long, string> locationCoordinatesWithId)
         {
             int degreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism();
             SemaphoreSlim semaphore = new SemaphoreSlim(degreeOfParallelism);
@@ -346,7 +343,6 @@ namespace DVF_API.Services.ServiceImplementation
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error in ProcessAllCoordinates: {ex.Message}");
                     // Ready for logging
                 }
                 finally
@@ -376,7 +372,7 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="historicData"></param>
         /// <param name="LocationId"></param>
         /// <returns>An array of WeatherStruct</returns>
-        private unsafe BinaryWeatherStructDto[] ConvertToCreateDto(HistoricWeatherDataDto historicData, long LocationId)
+        private unsafe BinaryWeatherStructDto[] ConvertToCreateDto(HistoricWeatherData historicData, long LocationId)
         {
             BinaryWeatherStructDto[] weatherDataList = new BinaryWeatherStructDto[historicData.Hourly.Time.Length];
 

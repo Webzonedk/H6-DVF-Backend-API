@@ -1,12 +1,8 @@
 ﻿using CoordinateSharp;
 using DVF_API.Domain.Interfaces;
-using DVF_API.SharedLib.Dtos;
-using SunCalcNet;
-using System.Diagnostics;
 
 namespace DVF_API.Domain.BusinessLogic
 {
-
 
     /// <summary>
     /// Calculates the solar position including elevation and azimuth angles using the CoordinateSharp library.
@@ -14,10 +10,18 @@ namespace DVF_API.Domain.BusinessLogic
     public class SolarPositionManager : ISolarPositionManager
     {
 
+        #region Fields
+        #endregion
+
+
+
+
+        #region Constructor
         public SolarPositionManager()
         {
 
         }
+        #endregion
 
 
 
@@ -35,13 +39,13 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-    /// <summary>
-    /// Calculates the solar position including elevation and azimuth angles using the CoordinateSharp library.
-    /// </summary>
-    /// <param name="dateTime"></param>
-    /// <param name="latitude"></param>
-    /// <param name="longitude"></param>
-    /// <returns>A tuple containing the Sun's elevation and azimuth angles in degrees.</returns>
+        /// <summary>
+        /// Calculates the solar position including elevation and azimuth angles using the CoordinateSharp library.
+        /// </summary>
+        /// <param name="dateTime"></param>
+        /// <param name="latitude"></param>
+        /// <param name="longitude"></param>
+        /// <returns>A tuple containing the Sun's elevation and azimuth angles in degrees.</returns>
         public (double Altitude, double Azimuth) CalculateSolarPosition(DateTime dateTime, double latitude, double longitude)
         {
             // Initialize coordinate with minimal celestial calculation

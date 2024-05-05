@@ -1,5 +1,8 @@
 ﻿namespace DVF_API.SharedLib.Dtos
 {
+    /// <summary>
+    /// This model is used to search for weather data
+    /// </summary>
     public class SearchDto
     {
         public DateOnly FromDate { get; set; }

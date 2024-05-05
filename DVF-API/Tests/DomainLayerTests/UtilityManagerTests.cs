@@ -17,8 +17,12 @@ namespace DVF_API.Tests.DomainLayerTests
         private const string InvalidPassword = "invalidPassword";
         private const string ClientIp = "192.168.1.100";
 
+
+
+
         public UtilityManagerTests()
         {
+
             var mock = new Mock<IUtilityManager>();
             int failedAttempts = 0;
 
@@ -99,7 +103,6 @@ namespace DVF_API.Tests.DomainLayerTests
         /// Test the GetModelSize method.
         /// </summary>
         [Fact]
-
         public void GetModelSize_ReturnsCorrectByteCount()
         {
             var manager = new UtilityManager();
@@ -168,6 +171,12 @@ namespace DVF_API.Tests.DomainLayerTests
             Assert.Equal(expected, actual);
         }
 
+
+
+
+        /// <summary>
+        /// Test the ConvertDateTimeToFloat method with invalid input.
+        /// </summary>
         [Fact]
         public void ConvertDateTimeToDouble_ThrowsFormatExceptionOnInvalidInput()
         {
@@ -236,6 +245,5 @@ namespace DVF_API.Tests.DomainLayerTests
             Assert.Equal("00000000", result[0]);
             Assert.Equal(0f, (float)result[1]);
         }
-
     }
 }

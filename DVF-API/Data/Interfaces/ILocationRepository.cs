@@ -2,6 +2,9 @@
 
 namespace DVF_API.Data.Interfaces
 {
+    /// <summary>
+    /// This interface connects the service layer with the location repository
+    /// </summary>
     public interface ILocationRepository
     {
         Task<List<string>> FetchMatchingAddresses(string partialAddress);

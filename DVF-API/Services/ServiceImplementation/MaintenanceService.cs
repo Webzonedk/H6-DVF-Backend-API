@@ -11,11 +11,11 @@ namespace DVF_API.Services.ServiceImplementation
     {
 
         #region Fields
-        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
-        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
-
         private readonly ICrudDatabaseRepository _databaseRepository;
         private readonly ICrudFileRepository _fileRepository;
+
+        private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
+        private string _deletedFilesDirectory = Environment.GetEnvironmentVariable("DELETED_WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/deletedWeatherData/";
         #endregion
 
 
@@ -38,7 +38,6 @@ namespace DVF_API.Services.ServiceImplementation
         /// <param name="deleteDataDto"></param>
         public void RemoveData(DateTime deleteDataDto)
         {
-            //Method to delete data
             _databaseRepository.DeleteOldData(deleteDataDto);
             _fileRepository.DeleteOldData(_baseDirectory, _deletedFilesDirectory, deleteDataDto);
         }

@@ -2,7 +2,10 @@
 
 namespace DVF_API.API.Models
 {
-    public class CreateHistoricWeatherDataRequestModel
+    /// <summary>
+    /// This model is responsible for the create historic weather data request
+    /// </summary>
+    public class CreateHistoricWeatherDataDto
     {
         public bool CreateFiles { get; set; }
         public bool CreateDB { get; set; }

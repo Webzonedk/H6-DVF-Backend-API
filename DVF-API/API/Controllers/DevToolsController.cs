@@ -8,20 +8,20 @@ using System.Net.Http;
 
 namespace DVF_API.API.Controllers
 {
+    /// <summary>
+    /// This controller is responsible for handling the developer tools requests
+    /// </summary>
     [ApiController]
     [Route("[controller]")]
     public class DevToolsController : ControllerBase
     {
-
-
-
+         
         #region fields
-        private readonly HttpClient _httpClient = new HttpClient();
         private readonly IDeveloperService _developerService;
-        private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
-        private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
-
         #endregion
+
+
+
 
         #region Constructor
         public DevToolsController(IDeveloperService developerService)
@@ -33,6 +33,11 @@ namespace DVF_API.API.Controllers
 
 
 
+        /// <summary>
+        /// Creates the cities in the database
+        /// </summary>
+        /// <param name="password"></param>
+        /// <returns>A message that the cities were created</returns>
         [HttpPost("/CreateCities")]
         public async Task<IActionResult> CreateCities([FromHeader(Name = "X-Password")] string password)
         {
@@ -55,6 +60,11 @@ namespace DVF_API.API.Controllers
 
 
 
+        /// <summary>
+        /// Creates the locations in the database
+        /// </summary>
+        /// <param name="password"></param>
+        /// <returns>A message that the locations were created</returns>
         [HttpPost("/CreateLocations")]
         public async Task<IActionResult> CreateLocations([FromHeader(Name = "X-Password")] string password)
         {
@@ -77,6 +87,11 @@ namespace DVF_API.API.Controllers
 
 
 
+        /// <summary>
+        /// Creates the coordinates in the database
+        /// </summary>
+        /// <param name="password"></param>
+        /// <returns>A message that the coordinates were created</returns>
         [HttpPost("/CreateCoordinates")]
         public async Task<IActionResult> CreateCoordinates([FromHeader(Name = "X-Password")] string password)
         {
@@ -100,14 +115,19 @@ namespace DVF_API.API.Controllers
 
 
 
+        /// <summary>
+        /// Creates the historic weather data to either the database or the files or both
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns>A message that the historic weather data is now being processed</returns>
         [HttpPost("/CreateHistoricWeatherData")]
-        public async Task<IActionResult> CreateHistoricWeatherData([FromBody] CreateHistoricWeatherDataRequestModel request)
+        public async Task<IActionResult> CreateHistoricWeatherData([FromBody] CreateHistoricWeatherDataDto request)
         {
             string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()!;
             try
             {
                 _= _developerService.CreateHistoricWeatherDataAsync(request.Password, clientIp, request.CreateFiles, request.CreateDB, request.StartDate, request.EndDate);
-                return Ok(new { message = "Historic is now being created" });
+                return Ok(new { message = "Historic weather is now being processed" });
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -117,34 +137,6 @@ namespace DVF_API.API.Controllers
             {
                 return StatusCode(429, new { message = ex.Message });
             }
-        }
-
-
-
-
-        [HttpPost("/StartSimulator")]
-        public async Task<IActionResult> StartSimulator()
-        {
-            var response = await _httpClient.GetAsync("https://iot-api.weblion.dk/StartSimulator");
-            if (!response.IsSuccessStatusCode)
-            {
-                return BadRequest(new { message = $"Failed to start simulator: {response.StatusCode}" });
-            }
-            return Ok(new { message = "Simulator started" });
-        }
-
-
-
-
-        [HttpPost("/StopSimulator")]
-        public async Task<IActionResult> StopSimulator()
-        {
-            var response = await _httpClient.GetAsync("https://iot-api.weblion.dk/StopSimulator");
-            if (!response.IsSuccessStatusCode)
-            {
-                return BadRequest(new { message = $"Failed to stop simulator: {response.StatusCode}" });
-            }
-            return Ok(new { message = "Simulator stopped" });
         }
     }
 }
