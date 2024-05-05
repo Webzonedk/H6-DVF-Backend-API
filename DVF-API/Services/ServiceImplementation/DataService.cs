@@ -5,10 +5,9 @@ using DVF_API.SharedLib.Dtos;
 using System.Diagnostics;
 using System.Globalization;
 
-
-
 namespace DVF_API.Services.ServiceImplementation
 {
+
     /// <summary>
     /// This class is responsible for handling the data retrieval and processing of weather data.
     /// It retrieves weather data from either the database or files, and adds sun angles to the data.
@@ -16,6 +15,7 @@ namespace DVF_API.Services.ServiceImplementation
     public class DataService : IDataService
     {
 
+        #region Fields
         private readonly ICrudDatabaseRepository _crudDatabaseRepository;
         private readonly ILocationRepository _locationRepository;
         private readonly ICrudFileRepository _crudFileRepository;
@@ -23,10 +23,12 @@ namespace DVF_API.Services.ServiceImplementation
         private readonly IUtilityManager _utilityManager;
 
         private string _baseDirectory = Environment.GetEnvironmentVariable("WEATHER_DATA_FOLDER") ?? "/Developer/DVF-WeatherFiles/weatherData/";
+        #endregion
 
 
 
 
+        #region Constructor
         public DataService(
             ICrudDatabaseRepository crudDatabaseRepository, ILocationRepository locationRepository,
             ISolarPositionManager solarPositionManager, IUtilityManager utilityManager,
@@ -38,6 +40,7 @@ namespace DVF_API.Services.ServiceImplementation
             _solarPositionManager = solarPositionManager;
             _utilityManager = utilityManager;
         }
+        #endregion
 
 
 
@@ -66,6 +69,7 @@ namespace DVF_API.Services.ServiceImplementation
 
 
 
+
         /// <summary>
         /// method returns a number of coordinates based on a range of location id´s from database
         /// </summary>
@@ -76,6 +80,8 @@ namespace DVF_API.Services.ServiceImplementation
         {
             return await _locationRepository.FetchLocationCoordinates(fromIndex, toIndex);
         }
+
+
 
 
         /// <summary>
@@ -223,13 +229,13 @@ namespace DVF_API.Services.ServiceImplementation
                     historicWeatherDataToFileDto.Address = $"{locations[Id].StreetName} {locations[Id].StreetNumber}, {locations[Id].PostalCode} {locations[Id].CityName}";
                     historicWeatherDataToFileDto.Latitude = locations[Id].Latitude;
                     historicWeatherDataToFileDto.Longitude = locations[Id].Longitude;
-                    historicWeatherDataToFileDto.TemperatureC = weatherStruct.WeatherData[0];
-                    historicWeatherDataToFileDto.RelativeHumidity = weatherStruct.WeatherData[1];
-                    historicWeatherDataToFileDto.Rain = weatherStruct.WeatherData[2];
-                    historicWeatherDataToFileDto.WindSpeed = weatherStruct.WeatherData[3];
-                    historicWeatherDataToFileDto.WindDirection = weatherStruct.WeatherData[4];
-                    historicWeatherDataToFileDto.WindGust = weatherStruct.WeatherData[5];
-                    historicWeatherDataToFileDto.GlobalTiltedIrRadiance = weatherStruct.WeatherData[6];
+                    historicWeatherDataToFileDto.TemperatureC = weatherStruct.WeatherData[1];
+                    historicWeatherDataToFileDto.RelativeHumidity = weatherStruct.WeatherData[2];
+                    historicWeatherDataToFileDto.Rain = weatherStruct.WeatherData[3];
+                    historicWeatherDataToFileDto.WindSpeed = weatherStruct.WeatherData[4];
+                    historicWeatherDataToFileDto.WindDirection = weatherStruct.WeatherData[5];
+                    historicWeatherDataToFileDto.WindGust = weatherStruct.WeatherData[6];
+                    historicWeatherDataToFileDto.GlobalTiltedIrRadiance = weatherStruct.WeatherData[7];
                     var sunResult = _solarPositionManager.CalculateSunAngles(historicWeatherDataToFileDto.DateAndTime, double.Parse(historicWeatherDataToFileDto.Latitude, CultureInfo.InvariantCulture), double.Parse(historicWeatherDataToFileDto.Longitude, CultureInfo.InvariantCulture));
                     historicWeatherDataToFileDto.SunAzimuthAngle = (float)sunResult.SunAzimuth;
                     historicWeatherDataToFileDto.SunElevationAngle = (float)sunResult.SunAltitude;

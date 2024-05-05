@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace DVF_API.Data.Models
+namespace DVF_API.SharedLib.Dtos
 {
+    /// <summary>
+    /// This model represents a city
+    /// </summary>
     public class City
     {
         [JsonPropertyName("PostalCode")]

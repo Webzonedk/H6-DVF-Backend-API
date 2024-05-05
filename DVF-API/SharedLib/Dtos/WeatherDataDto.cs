@@ -1,7 +1,7 @@
 ﻿namespace DVF_API.SharedLib.Dtos
 {
     /// <summary>
-    /// This class is used to store weather data to be sent to the client as a part of MetaDataDto.
+    /// This Model is used to transfer weather data between the API and the client
     /// </summary>
     public class WeatherDataDto
     {

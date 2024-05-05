@@ -1,30 +1,40 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Data;
 using System.Data.SqlClient;
-using System.Diagnostics;
 using System.Globalization;
 
 
 namespace DVF_API.Data.Repositories
 {
+
+    /// <summary>
+    /// This class is responsible for CRUD operations on the database
+    /// </summary>
     public class CrudDatabaseRepository : ICrudDatabaseRepository, ILocationRepository
     {
+
+        #region Fields
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
+        #endregion
 
-        public CrudDatabaseRepository(IConfiguration configuration, IUtilityManager utilityManager, ISolarPositionManager solarPositionManager)
+
+
+
+        #region Constructor
+        public CrudDatabaseRepository(IConfiguration configuration)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb");
         }
+        #endregion
 
 
 
 
         /// <summary>
-        /// returns all weather data within a time period or daily weather data at a specific location
+        /// Calls the private method to fetch weather data from the database
         /// </summary>
         /// <param name="searchDto"></param>
         /// <returns></returns>
@@ -33,6 +43,103 @@ namespace DVF_API.Data.Repositories
             return await GetWeatherDataAsync(searchDto);
         }
 
+
+
+
+        /// <summary>
+        /// Calls the private method to delete all data in the database
+        /// </summary>
+        /// <param name="deleteWeatherDataBeforeThisDate"></param>
+        /// <returns></returns>
+        public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
+        {
+            await RemoveOldData(deleteWeatherDataBeforeThisDate);
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to restore all data in the database
+        /// </summary>
+        /// <returns>A task</returns>
+        public async Task RestoreAllData()
+        {
+            await RestoreData();
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to fetch all coordinates from the database
+        /// </summary>
+        /// <param name="fromIndex"></param>
+        /// <param name="toIndex"></param>
+        /// <returns></returns>
+        public async Task<Dictionary<long, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
+        {
+            return await GetLocationCoordinates(fromIndex, toIndex);
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to fetch all addresses from the database
+        /// </summary>
+        /// <returns></returns>
+        public async Task<int> FetchLocationCount()
+        {
+            return await GetLocationCount();
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to fetch all addresses from the database
+        /// </summary>
+        /// <param name="partialAddress"></param>
+        /// <returns>A list of addresses</returns>
+        public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
+        {
+            return await GethMatchingAddresses(partialAddress);
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to fetch all addresses from the database based on the coordinates
+        /// </summary>
+        /// <param name="BinaryData"></param>
+        /// <returns>A list of binary data from file dtos</returns>
+        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(SearchDto searchDto)
+        {
+            return await GetAddressByCoordinates(searchDto);
+        }
+
+
+
+
+        /// <summary>
+        /// Calls the private method to fetch all addresses from the database
+        /// </summary>
+        /// <returns>A Dictionary with the location id as the key and the address as the value</returns>
+        public async Task<Dictionary<long, LocationDto>> GetAllLocationCoordinates()
+        {
+            return await FetchAllLocationCoordinates();
+        }
+
+
+
+
+        /// <summary>
+        /// Fetches the weather data from the database based on the search dto
+        /// </summary>
+        /// <param name="searchDto"></param>
+        /// <returns>A meta data dto</returns>
         private async Task<MetaDataDto> GetWeatherDataAsync(SearchDto searchDto)
         {
             try
@@ -40,14 +147,11 @@ namespace DVF_API.Data.Repositories
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
                 string query = "";
-                if(searchDto.Coordinates.Count > 0)
+                if (searchDto.Coordinates.Count > 0)
                 {
-
-                    // Split coordinates into latitude and longitude lists
                     var latitudes = searchDto.Coordinates.Select(c => c.Split('-')[0]);
                     var longitudes = searchDto.Coordinates.Select(c => c.Split('-')[1]);
 
-                    // Format the latitude and longitude lists as comma-separated strings
                     string latitudeValues = string.Join(",", latitudes.Select(lat => $"'{lat}'"));
                     string longitudeValues = string.Join(",", longitudes.Select(lon => $"'{lon}'"));
 
@@ -72,12 +176,8 @@ namespace DVF_API.Data.Repositories
                   " AND WD.IsDeleted = 0";
                 }
 
-
-                
-
-               
-
                 await using SqlCommand command = new SqlCommand(query, connection);
+                command.CommandTimeout = 1800;
                 List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
 
                 CultureInfo culture = new CultureInfo("en-US");
@@ -107,42 +207,36 @@ namespace DVF_API.Data.Repositories
                             GlobalTiltedIrRadiance = Convert.ToSingle(reader["GlobalTiltedIrRadiance"]),
                             DateAndTime = Convert.ToDateTime(reader["DateAndTime"]),
                         };
-
                         weatherData.Add(data);
                     }
-
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
                 }
-
 
                 MetaDataDto metaDatamodel = new MetaDataDto()
                 {
                     WeatherData = weatherData
                 };
 
-
                 return metaDatamodel;
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"GetWeatherDataAsync failed: {e.Message}"
                 throw;
             }
         }
 
+
+
+
         /// <summary>
-        /// Deletes all weather data until specific date 
+        /// Deletes all weather data until specific date
         /// </summary>
         /// <param name="deleteWeatherDataBeforeThisDate"></param>
-        /// <returns></returns>
-        public async Task DeleteOldData(DateTime deleteWeatherDataBeforeThisDate)
-        {
-            await RemoveOldData(deleteWeatherDataBeforeThisDate);
-        }
+        /// <returns>A task</returns>
         private async Task RemoveOldData(DateTime deleteWeatherDataBeforeThisDate)
         {
             try
@@ -161,34 +255,26 @@ namespace DVF_API.Data.Repositories
                 try
                 {
                     var result = await command.ExecuteNonQueryAsync();
-                    if (result > 0)
-                    {
-                        Debug.WriteLine("data successfully deleted");
-                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
                 }
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"method failed: {e.Message}"
                 throw;
             }
         }
 
 
 
+
         /// <summary>
         /// Restores all weather data in the database
         /// </summary>
-        /// <returns></returns>
-        public async Task RestoreAllData()
-        {
-            await RestoreData();
-        }
+        /// <returns>A task</returns>
         private async Task RestoreData()
         {
             try
@@ -202,37 +288,28 @@ namespace DVF_API.Data.Repositories
                 try
                 {
                     var result = await command.ExecuteNonQueryAsync();
-                    if (result > 0)
-                    {
-                        Debug.WriteLine("data successfully restored");
-                    }
-
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
                 }
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"method failed: {e.Message}"
                 throw;
             }
         }
 
 
 
+
         /// <summary>
-        /// extracts locations based on indexes
+        /// Gets the location coordinates based on the indexes
         /// </summary>
         /// <param name="fromIndex"></param>
         /// <param name="toIndex"></param>
-        /// <returns></returns>
-        public async Task<Dictionary<long, string>> FetchLocationCoordinates(int fromIndex, int toIndex)
-        {
-            return await GetLocationCoordinates(fromIndex, toIndex);
-        }
+        /// <returns>A dictionary with the location id as the key and the coordinates as the value</returns>
         private async Task<Dictionary<long, string>> GetLocationCoordinates(int fromIndex, int toIndex)
         {
             try
@@ -257,8 +334,6 @@ namespace DVF_API.Data.Repositories
                         string longitude = result["Longitude"].ToString();
                         int idIndex = result.GetOrdinal("locationId");
                         int id = result.GetInt32(idIndex);
-
-
                         string coordinate = $"{latitude}-{longitude}";
                         coordinates.Add(id, coordinate);
                     }
@@ -266,29 +341,24 @@ namespace DVF_API.Data.Repositories
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
                 }
                 return null;
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"method failed: {e.Message}"
                 throw;
             }
         }
 
 
 
-        /// <summary>
-        /// returns the total number of locations in the database
-        /// </summary>
-        /// <returns></returns>
-        public async Task<int> FetchLocationCount()
-        {
 
-            return await GetLocationCount();
-        }
+        /// <summary>
+        /// Fetches the number of locations in the database
+        /// </summary>
+        /// <returns>An integer representing the number of locations</returns>
         private async Task<int> GetLocationCount()
         {
             try
@@ -311,28 +381,25 @@ namespace DVF_API.Data.Repositories
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
                     return 0;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"GetLocationCount failed: {e.Message}"
                 throw;
             }
         }
 
 
+
+
         /// <summary>
-        /// returns a list of addresses based on partial search
+        /// Fetches the addresses that match the partial address
         /// </summary>
         /// <param name="partialAddress"></param>
-        /// <returns></returns>
-        public async Task<List<string>> FetchMatchingAddresses(string partialAddress)
-        {
-            return await GethMatchingAddresses(partialAddress);
-        }
+        /// <returns>A list of addresses</returns>
         private async Task<List<string>> GethMatchingAddresses(string partialAddress)
         {
             try
@@ -346,7 +413,6 @@ namespace DVF_API.Data.Repositories
                     " OR Cities.PostalCode LIKE @searchCriteria + '%'" +
                     " OR Cities.CityName LIKE @searchCriteria + '%'";
 
-
                 await using SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@searchCriteria", partialAddress);
 
@@ -357,95 +423,33 @@ namespace DVF_API.Data.Repositories
                     var result = await command.ExecuteReaderAsync();
                     while (await result.ReadAsync())
                     {
-                        // Combine columns into a single string with the specified format for each row
                         string combinedAddress = $"{result["LocationId"]}: {result["StreetName"]} {result["StreetNumber"]}, {result["PostalCode"]} {result["CityName"]}";
 
-                        // Add the combined string to the list
                         addresses.Add(combinedAddress);
                     }
-
                     return addresses;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
-                    return null; // Or any other default value in case of an error
+                    // Ready for logging $"An error occurred: {ex.Message}"
+                    throw;
                 }
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"method failed: {e.Message}"
                 throw;
             }
         }
 
 
 
-        /// <summary>
-        /// adding weather data to database
-        /// </summary>
-        /// <param name="weatherDataFromIOT"></param>
-        /// <returns></returns>
-        public async Task InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            await InsertWeatherData(weatherDataFromIOT);
-        }
-        private async Task InsertWeatherData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            try
-            {
-                await using SqlConnection connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
-
-                string query = "DECLARE @LocationId INT;" +
-                    "SELECT @LocationId = LocationId FROM Locations WHERE Latitude = @Latitude AND Longitude = @Longitude; " +
-                    "INSERT INTO WeatherDatas(TemperatureC, WindSpeed, WindDirection, WindGust, RelativeHumidity, Rain, GlobalTiltedIrRadiance, DateAndTime, LocationId)" +
-                    "VALUES(@Temperature, @WindSpeed, @WindDirection, @WindGust, @RelativeHumidity, @Rain, @GlobalTiltedIrRadiance, @DateAndTime, @LocationId)";
-
-                await using SqlCommand command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@Latitude", weatherDataFromIOT.Latitude);
-                command.Parameters.AddWithValue("@Longitude", weatherDataFromIOT.Longitude);
-                command.Parameters.AddWithValue("@Temperature", weatherDataFromIOT.Temperature);
-                command.Parameters.AddWithValue("@WindSpeed", weatherDataFromIOT.WindSpeed);
-                command.Parameters.AddWithValue("@WindDirection", weatherDataFromIOT.WindDirection);
-                command.Parameters.AddWithValue("@WindGust", weatherDataFromIOT.WindGust);
-                command.Parameters.AddWithValue("@RelativeHumidity", weatherDataFromIOT.RelativeHumidity);
-                command.Parameters.AddWithValue("@Rain", weatherDataFromIOT.Rain);
-                command.Parameters.AddWithValue("@GlobalTiltedIrRadiance", weatherDataFromIOT.GlobalTiltedIrRadiance);
-                command.Parameters.AddWithValue("@DateAndTime", weatherDataFromIOT.DateAndTime);
-
-                try
-                {
-                    var result = await command.ExecuteNonQueryAsync();
-                    if (result > 0)
-                    {
-                        Debug.WriteLine("weather data successfully inserted");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine($"method failed: {e.Message}");
-                throw;
-            }
-        }
-
 
         /// <summary>
-        /// adding addresses from latitude and longitude to binary data
+        /// Fetches the addresses based on the coordinates
         /// </summary>
-        /// <param name="BinaryData"></param>
-        /// <returns></returns>
-        public async Task<List<BinaryDataFromFileDto>> FetchAddressByCoordinates(SearchDto searchDto)
-        {
-            return await GetAddressByCoordinates(searchDto);
-        }
+        /// <param name="searchDto"></param>
+        /// <returns>A list of binary data from file dtos</returns>
         private async Task<List<BinaryDataFromFileDto>> GetAddressByCoordinates(SearchDto searchDto)
         {
             try
@@ -507,36 +511,26 @@ namespace DVF_API.Data.Repositories
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"An error occurred: {ex.Message}");
-                            // Ready for logging
+                            // Ready for logging $"An error occurred: {ex.Message}"
                         }
                     }
-
                 }
-
-
-
-
-
-
                 return binaryDataFromFileDtos;
-
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
+                // Ready for logging $"method failed: {e.Message}"
                 throw;
             }
-
-
-        }
-
-        public async Task<Dictionary<long,LocationDto>> GetAllLocationCoordinates()
-        {
-            return await FetchAllLocationCoordinates();
         }
 
 
+
+
+        /// <summary>
+        /// Fetches all location coordinates from the database
+        /// </summary>
+        /// <returns>A dictionary with the location id as the key and the location dto as the value</returns>
         private async Task<Dictionary<long, LocationDto>> FetchAllLocationCoordinates()
         {
             try
@@ -547,49 +541,37 @@ namespace DVF_API.Data.Repositories
                 string query = "SELECT * FROM Locations l JOIN Cities c On l.CityId =c.CityId";
                 await using SqlCommand command = new SqlCommand(query, connection);
 
-                //command.Parameters.AddWithValue("@fromIndex", fromIndex);
-                //command.Parameters.AddWithValue("@toIndex", toIndex);
-               Dictionary<long,LocationDto> locationDtos = new Dictionary<long,LocationDto>();
+                Dictionary<long, LocationDto> locationDtos = new Dictionary<long, LocationDto>();
                 try
                 {
-                  
                     var result = await command.ExecuteReaderAsync();
                     while (await result.ReadAsync())
                     {
-
-                        // string coordinate = $"{latitude}-{longitude}";
                         long id = result.GetInt32(result.GetOrdinal("LocationId"));
                         LocationDto locationDto = new LocationDto()
                         {
-
-
                             Latitude = result["Latitude"].ToString(),
                             Longitude = result["Longitude"].ToString(),
                             StreetName = result["StreetName"].ToString(),
                             StreetNumber = result["StreetNumber"].ToString(),
                             PostalCode = result["PostalCode"].ToString(),
                             CityName = result["CityName"].ToString()
-
                         };
-
-                        locationDtos.Add(id,locationDto);
-
+                        locationDtos.Add(id, locationDto);
                     }
                     return locationDtos;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"An error occurred: {ex.Message}");
-                    // Ready for logging
+                    // Ready for logging $"An error occurred: {ex.Message}"
+                    throw;
                 }
-                return null;
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"method failed: {e.Message}");
-               
+                // Ready for logging $"method failed: {e.Message}"
+                throw;
             }
-            return null;
         }
     }
 }

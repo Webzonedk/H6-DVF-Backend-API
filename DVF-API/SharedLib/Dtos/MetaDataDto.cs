@@ -1,7 +1,7 @@
 ﻿namespace DVF_API.SharedLib.Dtos
 {
     /// <summary>
-    /// This class is used to transfer metadata between the API and the client.
+    /// This model is used to transfer metadata between the API and the client.
     /// </summary>
     public class MetaDataDto
     {

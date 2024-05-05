@@ -1,8 +1,10 @@
-﻿using DVF_API.Data.Models;
-using DVF_API.SharedLib.Dtos;
+﻿using DVF_API.SharedLib.Dtos;
 
 namespace DVF_API.Data.Interfaces
 {
+    /// <summary>
+    /// This interface connects the service layer with the historic weather data repository
+    /// </summary>
     public interface IHistoricWeatherDataRepository
     {
         Task SaveDataToFileAsync(string fileName, BinaryWeatherStructDto[] weatherStruct);

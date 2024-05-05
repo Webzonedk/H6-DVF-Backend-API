@@ -2,6 +2,9 @@
 
 namespace DVF_API.Services.Interfaces
 {
+    /// <summary>
+    /// This interface connects the service layer with the data service
+    /// </summary>
     public interface IDataService
     {
         Task<List<string>> GetAddressesFromDBMatchingInputs(string partialAddress);

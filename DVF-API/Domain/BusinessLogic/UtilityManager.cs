@@ -6,6 +6,7 @@ using System.Text.Json;
 
 namespace DVF_API.Domain.BusinessLogic
 {
+
     /// <summary>
     /// Provides methods for performing system maintenance tasks such as freeing up system resources,
     /// clearing the console, and terminating redundant processes associated with the current application.
@@ -14,9 +15,11 @@ namespace DVF_API.Domain.BusinessLogic
     /// </summary>
     public class UtilityManager : IUtilityManager
     {
-        private const string VerySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
+
+        #region Fields
+        private const string _verySecretPassword = "2^aQeqnZoTH%PDgiFpRDa!!kL#kPLYWL3*D9g65fxQt@HYKpfAaWDkjS8sGxaCUEUVLrgR@wdoF";
         private static Dictionary<string, (DateTime lastAttempt, int attemptCount)> _loginAttempts = new();
-        private TimeSpan _initialCpuTime;
+        #endregion
 
 
 
@@ -41,7 +44,7 @@ namespace DVF_API.Domain.BusinessLogic
                 }
             }
 
-            if (password != VerySecretPassword)
+            if (password != _verySecretPassword)
             {
                 var attemptCount = loginInfo.attemptCount + 1;
                 _loginAttempts[clientIp] = (DateTime.UtcNow, attemptCount);

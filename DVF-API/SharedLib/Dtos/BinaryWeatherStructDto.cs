@@ -3,7 +3,7 @@
 namespace DVF_API.SharedLib.Dtos
 {
     /// <summary>
-    /// used to carry weather data and bytes using the same memory
+    /// This model is used to carry weather data and bytes using the same memory
     /// </summary>
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct BinaryWeatherStructDto

@@ -1,28 +1,33 @@
 ﻿using DVF_API.Data.Interfaces;
-using DVF_API.Data.Models;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace DVF_API.Data.Repositories
 {
+
+    /// <summary>
+    /// This class handles the historic weather data repository writing to the database and binary files.
+    /// </summary>
     public class HistoricWeatherDataRepository : IHistoricWeatherDataRepository
     {
-        private readonly IUtilityManager _utilityManager;
+
+        #region Fields
         private readonly IConfiguration _configuration;
         private readonly string _connectionString;
+        #endregion
+
+
 
 
         #region Constructors
-        public HistoricWeatherDataRepository(IConfiguration configuration, IUtilityManager utilityManager)
+        public HistoricWeatherDataRepository(IConfiguration configuration)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("WeatherDataDb")!;
-            _utilityManager = utilityManager;
         }
         #endregion
 

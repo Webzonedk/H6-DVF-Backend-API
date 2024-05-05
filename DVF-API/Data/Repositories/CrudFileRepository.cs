@@ -1,33 +1,32 @@
 ﻿using DVF_API.Data.Interfaces;
 using DVF_API.Domain.Interfaces;
 using DVF_API.SharedLib.Dtos;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using System;
 using System.Buffers;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.IO.Pipes;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks.Dataflow;
 
 namespace DVF_API.Data.Repositories
 {
+
+    /// <summary>
+    /// This class is responsible for CRUD operations on files.
+    /// </summary>
     public class CrudFileRepository : ICrudFileRepository
     {
 
+        #region Fields
         private readonly IUtilityManager _utilityManager;
+        #endregion
 
+
+
+
+        #region Constructor
         public CrudFileRepository(IUtilityManager utilityManager)
         {
             _utilityManager = utilityManager;
         }
+        #endregion
 
 
 
@@ -73,45 +72,30 @@ namespace DVF_API.Data.Repositories
 
 
 
+
         /// <summary>
-        /// calls the method to retrieve weatherdata base on all locations within a period or a single location
+        /// Reads weather data from a binary file asynchronously. based on the search criteria in the BinarySearchInFilesDto.
         /// </summary>
-        /// <param name="weatherDataFromIOT"></param>
-        /// <exception cref="NotImplementedException"></exception>
-        public void InsertData(WeatherDataFromIOTDto weatherDataFromIOT)
-        {
-            throw new NotImplementedException();
-        }
-
-
+        /// <param name="binarySearchInFilesDtos"></param>
+        /// <returns>A task containing an array of BinaryWeatherStructDto objects.</returns>
         private unsafe async Task<BinaryWeatherStructDto[]> ReadWeatherDataAsync(BinarySearchInFilesDto binarySearchInFilesDtos)
         {
-            // Calculate the total size needed for all structs
             int structSize = Marshal.SizeOf<BinaryWeatherStructDto>();
             FileInfo fileInfo = new FileInfo(binarySearchInFilesDtos.FilePath);
-            // int totalSize = (int)fileInfo.Length;
             long numStructs = (binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte) / structSize + 1;
             string? filepath = binarySearchInFilesDtos.FilePath;
-
-
             BinaryWeatherStructDto[] binaryWeatherStructDtos = new BinaryWeatherStructDto[numStructs];
-
             try
             {
                 if (File.Exists(filepath))
                 {
-                    Debug.WriteLine($"found filepath: {filepath}---------------------");
-
                     using (FileStream stream = new FileStream(filepath!, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-
                         int bufferSize = (int)(binarySearchInFilesDtos.ToByte - binarySearchInFilesDtos.FromByte);
                         long offset = binarySearchInFilesDtos.FromByte;
                         byte[] buffer = new byte[bufferSize];
                         stream.Seek(offset, SeekOrigin.Begin);
                         int bytesRead = stream.Read(buffer, 0, bufferSize);
-
-
 
                         fixed (byte* pBuffer = buffer)
                         {
@@ -120,18 +104,14 @@ namespace DVF_API.Data.Repositories
                                 binaryWeatherStructDtos[i] = *(BinaryWeatherStructDto*)(pBuffer + i * structSize);
                             }
                         }
-
                     }
                 }
             }
             catch (Exception e)
             {
-                Debug.WriteLine($"error occured:--------------{e}");
+                // Ready for logging $"Error reading file {filepath}: {e.Message}"
             }
-
             return binaryWeatherStructDtos;
-
-
         }
 
 
@@ -148,7 +128,6 @@ namespace DVF_API.Data.Repositories
         {
             var options = new ParallelOptions { MaxDegreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism() };
 
-            // Asynchronous method to recursively move files
             void MoveFilesInDirectoryAsync(string currentDirectory)
             {
                 try
@@ -189,29 +168,24 @@ namespace DVF_API.Data.Repositories
                         }
                         catch (Exception ex)
                         {
-                            // Log the error with the problematic file and the exception details
-                            Debug.WriteLine($"Error moving file {file}: {ex.Message}");
+                            // Ready for logging $"Error moving file {file}: {ex.Message}"
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    // Log the error for issues within the current directory processing
-                    Debug.WriteLine($"Error processing directory {currentDirectory}: {ex.Message}");
+                    // Ready for logging $"Error processing directory {currentDirectory}: {ex.Message}"
                 }
             }
-
             try
             {
                 await Task.Run(() => MoveFilesInDirectoryAsync(baseDirectory));
             }
             catch (Exception ex)
             {
-                // Log the error for issues initiating the process
-                Debug.WriteLine($"Error initiating process for base directory {baseDirectory}: {ex.Message}");
+                // Ready for logging $"Error initiating process for base directory {baseDirectory}: {ex.Message}"
             }
         }
-
 
 
 
@@ -225,45 +199,42 @@ namespace DVF_API.Data.Repositories
         private async Task RestoreFilesInDirectoryAsync(string baseDirectory, string deletedFilesDirectory)
         {
             var options = new ParallelOptions { MaxDegreeOfParallelism = _utilityManager.CalculateOptimalDegreeOfParallelism() };
-
-            async Task RestoreFilesAsync(string currentDeletedDirectory, string currentBaseDirectory)
+            try
             {
-                var directories = Directory.GetDirectories(currentDeletedDirectory);
-                Parallel.ForEach(directories, options, async (directory) =>
+                async Task RestoreFilesAsync(string currentDeletedDirectory, string currentBaseDirectory)
                 {
-                    string subFolder = Path.GetFileName(directory);
-                    string newBaseDir = Path.Combine(currentBaseDirectory, subFolder);
-                    if (!Directory.Exists(newBaseDir))
+                    var directories = Directory.GetDirectories(currentDeletedDirectory);
+                    Parallel.ForEach(directories, options, async (directory) =>
                     {
-                        Directory.CreateDirectory(newBaseDir);
-                    }
-                    await RestoreFilesAsync(directory, newBaseDir);
-                });
+                        string subFolder = Path.GetFileName(directory);
+                        string newBaseDir = Path.Combine(currentBaseDirectory, subFolder);
+                        if (!Directory.Exists(newBaseDir))
+                        {
+                            Directory.CreateDirectory(newBaseDir);
+                        }
+                        await RestoreFilesAsync(directory, newBaseDir);
+                    });
 
-                var files = Directory.GetFiles(currentDeletedDirectory, "*", SearchOption.TopDirectoryOnly);
-                Parallel.ForEach(files, options, async (file) =>
-                {
-                    string fileName = Path.GetFileName(file);
-                    string targetPath = Path.Combine(currentBaseDirectory, fileName);
-
-                    if (File.Exists(targetPath))
+                    var files = Directory.GetFiles(currentDeletedDirectory, "*", SearchOption.TopDirectoryOnly);
+                    Parallel.ForEach(files, options, async (file) =>
                     {
-                        File.Delete(targetPath);
-                    }
+                        string fileName = Path.GetFileName(file);
+                        string targetPath = Path.Combine(currentBaseDirectory, fileName);
 
-                    File.Move(file, targetPath);
-                });
+                        if (File.Exists(targetPath))
+                        {
+                            File.Delete(targetPath);
+                        }
+
+                        File.Move(file, targetPath);
+                    });
+                }
+                await Task.Run(() => RestoreFilesAsync(deletedFilesDirectory, baseDirectory));
             }
-
-            await Task.Run(() => RestoreFilesAsync(deletedFilesDirectory, baseDirectory));
+            catch (Exception ex)
+            {
+                // Ready for logging $"Error restoring files: {ex.Message}"
+            }
         }
-
-
-
-
-
-
-
-
     }
 }

@@ -2,6 +2,9 @@
 
 namespace DVF_API.SharedLib.Dtos
 {
+    /// <summary>
+    /// This model is responsible for the location data transfer object
+    /// </summary>
     public class LocationDto
     {
         [JsonPropertyName("Latitude")]

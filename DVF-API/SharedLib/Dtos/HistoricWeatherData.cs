@@ -1,6 +1,9 @@
 ﻿namespace DVF_API.SharedLib.Dtos
 {
-    public class HistoricWeatherDataDto
+    /// <summary>
+    /// This model is used to store the historic weather data from the API
+    /// </summary>
+    public class HistoricWeatherData
     {
 
         public HourlyData Hourly { get; set; }

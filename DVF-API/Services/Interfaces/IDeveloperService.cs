@@ -1,7 +1,8 @@
-﻿using DVF_API.Data.Models;
-
-namespace DVF_API.Services.Interfaces
+﻿namespace DVF_API.Services.Interfaces
 {
+    /// <summary>
+    /// This interface connects the service layer with the developer manager
+    /// </summary>
     public interface IDeveloperService
     {
         Task CreateHistoricWeatherDataAsync(string password, string clientIp, bool createFiles, bool createDB, DateTime startDate, DateTime endDate);
