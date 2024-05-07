@@ -244,42 +244,16 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
+
         /// <summary>
-        /// Method to start measuring CPU time, considering the platform-specific details.
+        /// Method to start measuring CPU time
         /// </summary>
         /// <returns>A tuple containing the initial CPU time and a Stopwatch object.</returns>
         public (TimeSpan, Stopwatch) BeginMeasureCPUTime()
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            TimeSpan startTime;
-
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // Linux system
-                double totalJiffies = 0;
-                string[] cpuStats = File.ReadAllLines("/proc/stat");
-                foreach (string line in cpuStats)
-                {
-                    if (line.StartsWith("cpu "))
-                    {
-                        string[] tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        for (int i = 1; i <= 8; i++)
-                        {
-                            totalJiffies += double.Parse(tokens[i]);
-                        }
-                        break;
-                    }
-                }
-                int systemHz = 100;  // Default HZ value for most Linux systems
-                startTime = TimeSpan.FromSeconds(totalJiffies / systemHz);
-            }
-            else
-            {
-                // Windows system
-                startTime = Process.GetCurrentProcess().TotalProcessorTime;
-            }
-
+            TimeSpan startTime = Process.GetCurrentProcess().TotalProcessorTime;
             return (startTime, stopwatch);
         }
 
@@ -289,77 +263,17 @@ namespace DVF_API.Domain.BusinessLogic
         /// <summary>
         /// Method to stop measuring CPU time and calculate the CPU usage percentage.
         /// </summary>
-        /// <param name="startTime">The initial CPU time recorded.</param>
-        /// <param name="stopwatch">The stopwatch used to measure the duration.</param>
+        /// <param name="startTime"></param>
+        /// <param name="stopwatch"></param>
         /// <returns>A tuple containing the CPU usage percentage and the elapsed time in milliseconds.</returns>
         public (double CpuUsagePercentage, double ElapsedTimeMs) StopMeasureCPUTime(TimeSpan startTime, Stopwatch stopwatch)
         {
             stopwatch.Stop();
-            TimeSpan endTime;
-
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // Linux system
-                double totalJiffies = 0;
-                string[] cpuStats = File.ReadAllLines("/proc/stat");
-                foreach (string line in cpuStats)
-                {
-                    if (line.StartsWith("cpu "))
-                    {
-                        string[] tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        for (int i = 1; i <= 8; i++)
-                        {
-                            totalJiffies += double.Parse(tokens[i]);
-                        }
-                        break;
-                    }
-                }
-                int systemHz = 100;  // Default HZ value for most Linux systems
-                endTime = TimeSpan.FromSeconds(totalJiffies / systemHz);
-            }
-            else
-            {
-                // Windows system
-                endTime = Process.GetCurrentProcess().TotalProcessorTime;
-            }
-
+            TimeSpan endTime = Process.GetCurrentProcess().TotalProcessorTime;
             TimeSpan cpuUsed = endTime - startTime;
             double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / stopwatch.ElapsedMilliseconds) * 100;
             return (cpuUsagePercentage, stopwatch.ElapsedMilliseconds);
         }
-
-
-
-
-        ///// <summary>
-        ///// Method to start measuring CPU time
-        ///// </summary>
-        ///// <returns>A tuple containing the initial CPU time and a Stopwatch object.</returns>
-        //public (TimeSpan, Stopwatch) BeginMeasureCPUTime()
-        //{
-        //    Stopwatch stopwatch = new Stopwatch();
-        //    stopwatch.Start();
-        //    TimeSpan startTime = Process.GetCurrentProcess().TotalProcessorTime;
-        //    return (startTime, stopwatch);
-        //}
-
-
-
-
-        ///// <summary>
-        ///// Method to stop measuring CPU time and calculate the CPU usage percentage.
-        ///// </summary>
-        ///// <param name="startTime"></param>
-        ///// <param name="stopwatch"></param>
-        ///// <returns>A tuple containing the CPU usage percentage and the elapsed time in milliseconds.</returns>
-        //public (double CpuUsagePercentage, double ElapsedTimeMs) StopMeasureCPUTime(TimeSpan startTime, Stopwatch stopwatch)
-        //{
-        //    stopwatch.Stop();
-        //    TimeSpan endTime = Process.GetCurrentProcess().TotalProcessorTime;
-        //    TimeSpan cpuUsed = endTime - startTime;
-        //    double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / stopwatch.ElapsedMilliseconds) * 100;
-        //    return (cpuUsagePercentage, stopwatch.ElapsedMilliseconds);
-        //}
 
 
 
@@ -370,10 +284,10 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>A double value representing the initial memory usage in bytes.</returns>
         public double BeginMeasureMemory()
         {
-            //GC.Collect();
-            //GC.WaitForPendingFinalizers();
-            //GC.Collect();
-            return Process.GetCurrentProcess().PrivateMemorySize64;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            return Process.GetCurrentProcess().WorkingSet64;
         }
 
 
@@ -386,7 +300,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>A double value representing the memory usage in bytes.</returns>
         public double StopMeasureMemory(double startMemory)
         {
-            double endMemory = Process.GetCurrentProcess().PrivateMemorySize64;
+            double endMemory = Process.GetCurrentProcess().WorkingSet64;
             return endMemory - startMemory;
         }
     }
