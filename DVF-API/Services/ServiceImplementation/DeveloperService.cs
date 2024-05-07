@@ -118,7 +118,7 @@ namespace DVF_API.Services.ServiceImplementation
         {
             if (_utilityManager.Authenticate(password, clientIp))
             {
-                await CreateCoordinatesRepository();
+                await CreateLocationsForRepository();
             }
         }
 
@@ -516,11 +516,22 @@ namespace DVF_API.Services.ServiceImplementation
                     return;
                 }
 
+                // Sorting by street name and house number
+                locationModels.Sort((x, y) =>
+                {
+                    int streetNameComparison = string.Compare(x.StreetName, y.StreetName, StringComparison.OrdinalIgnoreCase);
+                    if (streetNameComparison != 0) return streetNameComparison;
+                    int xHouseNumber = int.TryParse(x.StreetNumber, out int xn) ? xn : int.MaxValue;
+                    int yHouseNumber = int.TryParse(y.StreetNumber, out int yn) ? yn : int.MaxValue;
+                    return xHouseNumber.CompareTo(yHouseNumber);
+                });
+
                 foreach (var location in locationModels)
                 {
                     location.Latitude = FormatCoordinate(location.Latitude);
                     location.Longitude = FormatCoordinate(location.Longitude);
                 }
+
                 await _historicWeatherDataRepository.SaveLocationsToDBAsync(locationModels);
             }
             catch (Exception)
@@ -528,6 +539,33 @@ namespace DVF_API.Services.ServiceImplementation
                 //ready for logging
             }
         }
+
+        //private async Task CreateLocationsForRepository()
+        //{
+        //    try
+        //    {
+        //        string _LocationsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "LocationsSelected.json");
+        //        string jsonContent = File.ReadAllText(_LocationsFilePath);
+
+        //        List<LocationDto>? locationModels = JsonSerializer.Deserialize<List<LocationDto>>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        //        if (locationModels is null)
+        //        {
+        //            return;
+        //        }
+
+        //        foreach (var location in locationModels)
+        //        {
+        //            location.Latitude = FormatCoordinate(location.Latitude);
+        //            location.Longitude = FormatCoordinate(location.Longitude);
+        //        }
+        //        await _historicWeatherDataRepository.SaveLocationsToDBAsync(locationModels);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        //ready for logging
+        //    }
+        //}
 
 
 
