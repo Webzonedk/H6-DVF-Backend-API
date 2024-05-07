@@ -144,11 +144,13 @@ namespace DVF_API.Data.Repositories
         {
             try
             {
+                List<BinaryDataFromFileDto> Locations = await FetchAddressByCoordinates(searchDto);
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
                 string query = "";
                 if (searchDto.Coordinates.Count > 0)
                 {
+
                     var latitudes = searchDto.Coordinates.Select(c => c.Split('-')[0]);
                     var longitudes = searchDto.Coordinates.Select(c => c.Split('-')[1]);
 
@@ -160,7 +162,7 @@ namespace DVF_API.Data.Repositories
                   " JOIN Locations L ON WD.LocationId = L.LocationId" +
                   " JOIN Cities C ON L.CityId = C.CityId" +
                   " WHERE WD.DateAndTime >= @FromDate" +
-                  " AND WD.DateAndTime <= @ToDate" +
+                  " AND WD.DateAndTime < @ToDate" +
                   $" AND L.Latitude IN ({latitudeValues})" +
                   $" AND L.Longitude IN ({longitudeValues})" +
                   " AND WD.IsDeleted = 0";
@@ -172,16 +174,17 @@ namespace DVF_API.Data.Repositories
                   " JOIN Locations L ON WD.LocationId = L.LocationId" +
                   " JOIN Cities C ON L.CityId = C.CityId" +
                   " WHERE WD.DateAndTime >= @FromDate" +
-                  " AND WD.DateAndTime <= @ToDate" +
+                  " AND WD.DateAndTime < @ToDate" +
                   " AND WD.IsDeleted = 0";
                 }
 
+                List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
                 await using SqlCommand command = new SqlCommand(query, connection);
                 command.CommandTimeout = 1800;
-                List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
 
                 CultureInfo culture = new CultureInfo("en-US");
-                string formattedToDate = searchDto.ToDate.ToString("yyyy-MM-dd", culture);
+                DateOnly toDatePlusOne = searchDto.ToDate.AddDays(1);
+                string formattedToDate = toDatePlusOne.ToString("yyyy-MM-dd", culture);
                 string formattedFromDate = searchDto.FromDate.ToString("yyyy-MM-dd", culture);
 
                 command.Parameters.AddWithValue("@FromDate ", formattedFromDate);

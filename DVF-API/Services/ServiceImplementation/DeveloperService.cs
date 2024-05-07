@@ -235,7 +235,7 @@ namespace DVF_API.Services.ServiceImplementation
                     await Task.Delay(1000); // Wait for a moment before trying again if the queue is temporarily empty
                 }
             }
-            _databaseWriteQueue.Clear(); // Clear the queue to free up memory
+            //_databaseWriteQueue.Clear(); // Clear the queue to free up memory
         }
 
 
