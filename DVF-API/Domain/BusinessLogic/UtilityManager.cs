@@ -1,4 +1,5 @@
 ﻿using DVF_API.Domain.Interfaces;
+using FluentAssertions.Common;
 using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
@@ -224,7 +225,7 @@ namespace DVF_API.Domain.BusinessLogic
 
             try
             {
-                 if (time < 0 || time > 999999999999)
+                if (time < 0 || time > 999999999999)
                 {
                     throw new ArgumentOutOfRangeException(nameof(time), "Input is out of range for a valid date-time representation.");
                 }
