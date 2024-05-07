@@ -96,7 +96,9 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 return await RetrieveDataFromDatabase(searchDto);
             }
-
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
             (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPUTime();
             double startMemory = _utilityManager.BeginMeasureMemory();
 
@@ -318,6 +320,9 @@ namespace DVF_API.Services.ServiceImplementation
         /// <returns>A MetaDataDto object containing the weather data and sun angles.</returns>
         private async Task<MetaDataDto> RetrieveDataFromDatabase(SearchDto searchDto)
         {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
             (TimeSpan cpuTimeBeforeRetrievingFromDatabase, Stopwatch fileStopwatch) = _utilityManager.BeginMeasureCPUTime();
             double StartMemoryDatabase = _utilityManager.BeginMeasureMemory();
 

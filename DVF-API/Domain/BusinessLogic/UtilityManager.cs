@@ -283,6 +283,9 @@ namespace DVF_API.Domain.BusinessLogic
             return (startTime, stopwatch);
         }
 
+
+
+
         /// <summary>
         /// Method to stop measuring CPU time and calculate the CPU usage percentage.
         /// </summary>
@@ -367,9 +370,9 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>A double value representing the initial memory usage in bytes.</returns>
         public double BeginMeasureMemory()
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
+            //GC.Collect();
             return Process.GetCurrentProcess().PrivateMemorySize64;
         }
 
