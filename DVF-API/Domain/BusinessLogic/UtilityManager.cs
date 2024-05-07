@@ -244,6 +244,7 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
+
         /// <summary>
         /// Method to start measuring CPU time, considering the platform-specific details.
         /// </summary>
@@ -282,6 +283,9 @@ namespace DVF_API.Domain.BusinessLogic
 
             return (startTime, stopwatch);
         }
+
+
+
 
         /// <summary>
         /// Method to stop measuring CPU time and calculate the CPU usage percentage.
@@ -328,39 +332,6 @@ namespace DVF_API.Domain.BusinessLogic
 
 
 
-        ///// <summary>
-        ///// Method to start measuring CPU time
-        ///// </summary>
-        ///// <returns>A tuple containing the initial CPU time and a Stopwatch object.</returns>
-        //public (TimeSpan, Stopwatch) BeginMeasureCPUTime()
-        //{
-        //    Stopwatch stopwatch = new Stopwatch();
-        //    stopwatch.Start();
-        //    TimeSpan startTime = Process.GetCurrentProcess().TotalProcessorTime;
-        //    return (startTime, stopwatch);
-        //}
-
-
-
-
-        ///// <summary>
-        ///// Method to stop measuring CPU time and calculate the CPU usage percentage.
-        ///// </summary>
-        ///// <param name="startTime"></param>
-        ///// <param name="stopwatch"></param>
-        ///// <returns>A tuple containing the CPU usage percentage and the elapsed time in milliseconds.</returns>
-        //public (double CpuUsagePercentage, double ElapsedTimeMs) StopMeasureCPUTime(TimeSpan startTime, Stopwatch stopwatch)
-        //{
-        //    stopwatch.Stop();
-        //    TimeSpan endTime = Process.GetCurrentProcess().TotalProcessorTime;
-        //    TimeSpan cpuUsed = endTime - startTime;
-        //    double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / stopwatch.ElapsedMilliseconds) * 100;
-        //    return (cpuUsagePercentage, stopwatch.ElapsedMilliseconds);
-        //}
-
-
-
-
         /// <summary>
         /// Method to start measuring memory
         /// </summary>
@@ -370,7 +341,7 @@ namespace DVF_API.Domain.BusinessLogic
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
-            return Process.GetCurrentProcess().PrivateMemorySize64;
+            return Process.GetCurrentProcess().WorkingSet64;
         }
 
 
@@ -383,7 +354,7 @@ namespace DVF_API.Domain.BusinessLogic
         /// <returns>A double value representing the memory usage in bytes.</returns>
         public double StopMeasureMemory(double startMemory)
         {
-            double endMemory = Process.GetCurrentProcess().PrivateMemorySize64;
+            double endMemory = Process.GetCurrentProcess().WorkingSet64;
             return endMemory - startMemory;
         }
     }

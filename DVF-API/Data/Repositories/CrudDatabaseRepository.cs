@@ -180,7 +180,6 @@ namespace DVF_API.Data.Repositories
 
                 List<WeatherDataDto> weatherData = new List<WeatherDataDto>();
                 await using SqlCommand command = new SqlCommand(query, connection);
-                command.CommandTimeout = 1800;
 
                 CultureInfo culture = new CultureInfo("en-US");
                 DateOnly toDatePlusOne = searchDto.ToDate.AddDays(1);

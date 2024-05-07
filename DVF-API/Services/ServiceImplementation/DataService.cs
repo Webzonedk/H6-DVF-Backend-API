@@ -96,7 +96,6 @@ namespace DVF_API.Services.ServiceImplementation
             {
                 return await RetrieveDataFromDatabase(searchDto);
             }
-
             (TimeSpan cpuTimeBefore, Stopwatch stopwatch) = _utilityManager.BeginMeasureCPUTime();
             double startMemory = _utilityManager.BeginMeasureMemory();
 

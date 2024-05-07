@@ -540,33 +540,6 @@ namespace DVF_API.Services.ServiceImplementation
             }
         }
 
-        //private async Task CreateLocationsForRepository()
-        //{
-        //    try
-        //    {
-        //        string _LocationsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sources", "LocationsSelected.json");
-        //        string jsonContent = File.ReadAllText(_LocationsFilePath);
-
-        //        List<LocationDto>? locationModels = JsonSerializer.Deserialize<List<LocationDto>>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        //        if (locationModels is null)
-        //        {
-        //            return;
-        //        }
-
-        //        foreach (var location in locationModels)
-        //        {
-        //            location.Latitude = FormatCoordinate(location.Latitude);
-        //            location.Longitude = FormatCoordinate(location.Longitude);
-        //        }
-        //        await _historicWeatherDataRepository.SaveLocationsToDBAsync(locationModels);
-        //    }
-        //    catch (Exception)
-        //    {
-        //        //ready for logging
-        //    }
-        //}
-
 
 
 
