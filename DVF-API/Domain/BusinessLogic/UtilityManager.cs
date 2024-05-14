@@ -325,37 +325,51 @@ namespace DVF_API.Domain.BusinessLogic
             }
 
             TimeSpan cpuUsed = endTime - startTime;
-            double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / stopwatch.ElapsedMilliseconds) * 100;
+            double cpuUsagePercentage = (cpuUsed.TotalMilliseconds / (stopwatch.ElapsedMilliseconds * Environment.ProcessorCount) * 100);
             return (cpuUsagePercentage, stopwatch.ElapsedMilliseconds);
         }
 
 
 
 
-        /// <summary>
-        /// Method to start measuring memory
-        /// </summary>
-        /// <returns>A double value representing the initial memory usage in bytes.</returns>
         public double BeginMeasureMemory()
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            return Process.GetCurrentProcess().WorkingSet64;
+            // Return total allocated memory that is not yet collected.
+            return GC.GetTotalMemory(true);
         }
 
-
-
-
-        /// <summary>
-        /// Method to stop measuring memory and calculate the memory usage.
-        /// </summary>
-        /// <param name="startMemory"></param>
-        /// <returns>A double value representing the memory usage in bytes.</returns>
         public double StopMeasureMemory(double startMemory)
         {
-            double endMemory = Process.GetCurrentProcess().WorkingSet64;
+            double endMemory = GC.GetTotalMemory(true);
             return endMemory - startMemory;
         }
+
+
+
+        ///// <summary>
+        ///// Method to start measuring memory
+        ///// </summary>
+        ///// <returns>A double value representing the initial memory usage in bytes.</returns>
+        //public double BeginMeasureMemory()
+        //{
+        //    GC.Collect();
+        //    GC.WaitForPendingFinalizers();
+        //    GC.Collect();
+        //    return Process.GetCurrentProcess().WorkingSet64;
+        //}
+
+
+
+
+        ///// <summary>
+        ///// Method to stop measuring memory and calculate the memory usage.
+        ///// </summary>
+        ///// <param name="startMemory"></param>
+        ///// <returns>A double value representing the memory usage in bytes.</returns>
+        //public double StopMeasureMemory(double startMemory)
+        //{
+        //    double endMemory = Process.GetCurrentProcess().WorkingSet64;
+        //    return endMemory - startMemory;
+        //}
     }
 }

@@ -144,7 +144,7 @@ namespace DVF_API.Data.Repositories
         {
             try
             {
-                List<BinaryDataFromFileDto> Locations = await FetchAddressByCoordinates(searchDto);
+                //List<BinaryDataFromFileDto> Locations = await FetchAddressByCoordinates(searchDto);
                 await using SqlConnection connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
                 string query = "";
